@@ -1,0 +1,10 @@
+﻿VIDEO_ANALYSIS
+Phân tích video này và mô tả:
+1. Nội dung chính của video (câu chuyện, hành động, tình huống)
+2. Các nhân vật xuất hiện (mô tả ngoại hình, tính cách nếu có thể)
+3. Bối cảnh/khung cảnh (nơi chốn, môi trường)
+4. Phong cách hình ảnh (animation, live action, 2D, 3D, v.v.)
+5. Tông màu và không khí tổng thể
+
+
+Hãy mô tả chi tiết và chính xác. Phân tích toàn bộ cảnh từ đầu đến cuối, bao gồm sự phát triển của câu chuyện qua các video. Chỉ trả về nội dung text, không cần giải thích thêm

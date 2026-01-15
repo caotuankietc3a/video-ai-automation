@@ -1,0 +1,120 @@
+﻿CONTENT_TO_CHARACTER_PROMPT
+Bạn là một chuyên gia phân tích nội dung. Nhiệm vụ của bạn là trích xuất tất cả các nhân vật từ nội dung đã cho và tạo ra một file JSON với cấu trúc cụ thể.
+
+
+YÊU CẦU:
+1. Xác định TẤT CẢ các nhân vật xuất hiện trong nội dung
+2. Mỗi nhân vật phải có ID duy nhất (CHAR_1, CHAR_2, CHAR_3, ...)
+3. Thu thập đầy đủ thông tin về mỗi nhân vật từ nội dung
+4. Nếu thiếu thông tin, hãy suy luận hợp lý dựa trên ngữ cảnh
+5. Output phải là JSON hợp lệ, không có comment
+
+
+CẤU TRÚC JSON:
+{{
+  "CHAR_1": {{
+    "id": "CHAR_1",
+    "name": "Tên nhân vật (ví dụ: Mischief, Thỏ Bảy Màu, Black Cat)",
+    "species": "Loài (Human, Cat, Rabbit, Dog, v.v.)",
+    "gender": "Male / Female / Other",
+    "age": "Mô tả tuổi tác (ví dụ: adult, child, 3 years old)",
+    "appearance": {{
+      "body_build": "Dáng người/cơ thể (slender, chubby, muscular, small)",
+      "height": "Chiều cao tương đối hoặc cm (ví dụ: 30cm, small-sized)",
+      "face_shape": "Hình dạng khuôn mặt (round, oval, sharp)",
+      "eye_color": "Màu mắt (brown, amber, blue, glowing yellow)",
+      "hair_or_fur": {{
+        "type": "hair hoặc fur",
+        "length": "Độ dài (short, medium, long)",
+        "color": "Màu chính",
+        "pattern": "Hoa văn nếu có (stripes, spots, none)"
+      }},
+      "signature_feature": "Đặc điểm nhận diện nổi bật (khăn, sẹo, tai cụp, mắt phát sáng)"
+    }},
+    "outfit": {{
+      "top": "Trang phục phần trên (None nếu không có)",
+      "bottom": "Trang phục phần dưới (None nếu không có)",
+      "headwear": "Mũ/nón/phụ kiện đầu (None nếu không có)",
+      "footwear": "Giày/dép/chân trần",
+      "accessories": [
+        "Danh sách phụ kiện gắn với nhân vật"
+      ]
+    }},
+    "props": [
+      "Đạo cụ thường mang theo (kính lúp, chai sữa, kiếm gỗ, v.v.)"
+    ],
+    "personality": {{
+      "core_traits": [
+        "Tính cách chính (playful, shy, brave, curious)"
+      ],
+      "behavior_notes": "Hành vi đặc trưng (hay nghiêng đầu, hay giật mình, hay khoanh tay)"
+    }},
+    "voice": {{
+      "language": "Ngôn ngữ (en-US, vi-VN, ja-JP)",
+      "tone": "Giọng (cute, deep, childish, calm)",
+      "default_sounds": [
+        "Âm thanh đặc trưng (meow, laugh, sigh)"
+      ]
+    }},
+    "states": {{
+      "default": {{
+        "description": "Trạng thái mặc định của nhân vật",
+        "size_modifier": "Tỷ lệ kích thước (1.0 là bình thường)",
+        "visual_changes": [
+          "Thay đổi ngoại hình nếu có"
+        ],
+        "voice_changes": [
+          "Thay đổi giọng nếu có"
+        ]
+      }},
+      "alternative_state_example": {{
+        "description": "Ví dụ: biến hình, cosplay, trạng thái đặc biệt",
+        "size_modifier": "Ví dụ: 1.5",
+        "visual_changes": [
+          "Mắt phát sáng",
+          "Cơ thể to hơn"
+        ],
+        "voice_changes": [
+          "Giọng trầm hơn"
+        ]
+      }}
+    }},
+
+
+    "animation_rules": {{
+      "idle_actions": [
+        "Chuyển động khi đứng yên (blink, breathing, tail sway)"
+      ],
+      "movement_style": [
+        "Phong cách di chuyển (smooth walk, slow run)"
+      ],
+      "restrictions": [
+        "Luật cấm (no extra limbs, stable face, no deformation)"
+      ]
+    }},
+
+
+    "ai_constraints": {{
+      "style_consistency": "Giữ style nhất quán giữa các scene",
+      "character_consistency": "Không thay đổi ngoại hình giữa các cảnh",
+      "no_text_on_screen": "Không chữ trên video",
+      "family_friendly": "Nội dung an toàn, không bạo lực"
+    }}
+  }},
+  "CHAR_2": {{ ... }},
+
+
+}}
+
+
+QUAN TRỌNG:
+- Tất cả các trường đều phải có giá trị (không được null hoặc rỗng)
+- Nếu không có thông tin, hãy điền "Unknown" hoặc mô tả hợp lý
+- Đảm bảo JSON hợp lệ, có thể parse được
+
+
+=== NỘI DUNG ===
+{content}
+
+
+Hãy trích xuất tất cả nhân vật và trả về JSON và có thể copy được JSON  này.

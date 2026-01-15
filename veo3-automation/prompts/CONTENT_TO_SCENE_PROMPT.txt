@@ -1,0 +1,160 @@
+﻿CONTENT_TO_SCENE_PROMPT
+Bạn là một đạo diễn và biên kịch chuyên nghiệp. Nhiệm vụ của bạn là tạo ra danh sách scenes từ nội dung đã cho.
+
+
+YÊU CẦU:
+1. Tạo đúng số lượng scenes theo yêu cầu (phù hợp với số lượng video)
+2. Mỗi scene phải có độ dài khoảng 8 giây (duration_sec: "8")
+3. Sử dụng các nhân vật đã được định nghĩa trong characters.json
+4. Mỗi scene phải có đầy đủ thông tin: visual_style, background_lock, camera, foley_and_ambience, character_lock, dialogue, mood
+5. Đảm bảo tính liên tục giữa các scenes
+6. Output phải là JSON array hợp lệ
+
+
+CẤU TRÚC MỖI SCENE:
+{{
+  "scene_id": "SCENE_ID",
+  "duration_sec": 8,
+
+
+  "visual_style": "Mô tả phong cách hình ảnh tổng thể của scene (anime 2D, 3D Pixar-like, cinematic, soft lighting, clean line art)",
+
+
+  "background_lock": {{
+    "BACKGROUND_ID": {{
+      "id": "BACKGROUND_ID",
+      "name": "Tên bối cảnh (Cozy Living Room, Garden, Street at Night)",
+
+
+      "setting": "Mô tả tổng quan không gian (indoor/outdoor, phong cách, cảm giác chung)",
+
+
+      "environment": {{
+        "location_type": "Loại địa điểm (living room, bedroom, hallway, garden, street)",
+        "style": "Phong cách (modern, traditional, Vietnamese, fantasy)",
+        "time_of_day": "Thời điểm (morning, afternoon, evening, night)",
+        "weather": "Thời tiết (sunny, rainy, foggy, none)"
+      }},
+
+
+      "scenery": {{
+        "main_elements": [
+          "Các vật thể cố định chính (sofa, table, window, door)"
+        ],
+        "secondary_elements": [
+          "Vật thể phụ (plants, lamps, curtains, shelves)"
+        ],
+        "background_depth": "Độ sâu không gian (shallow / medium / deep)"
+      }},
+
+
+      "props": [
+        "Đạo cụ nhỏ trong nền (toys, plates, books, photos)"
+      ],
+
+
+      "lighting": {{
+        "type": "Kiểu ánh sáng (natural daylight, warm lamp light, moonlight)",
+        "direction": "Hướng sáng (from window, overhead, side light)",
+        "intensity": "Cường độ (soft, medium, strong)",
+        "shadow_style": "Đổ bóng (soft shadows, hard shadows)"
+      }},
+
+
+      "color_palette": {{
+        "primary_colors": [
+          "Màu chủ đạo (warm beige, light brown)"
+        ],
+        "accent_colors": [
+          "Màu nhấn (green plants, blue cushions)"
+        ]
+      }}
+    }}
+  }},
+
+
+  "mood": {{
+    "emotional_tone": "Cảm xúc chính của scene (cozy, calm, suspense, cheerful)",
+    "story_function": "Vai trò trong câu chuyện (setup, tension, reveal, resolution)"
+  }},
+
+
+  "camera": {{
+    "framing": "WS / MS / MCU / CU",
+    "angle": "eye level / low angle / high angle",
+    "movement": "static / slow push-in / pan / smooth tracking",
+    "focus": "Đối tượng focus chính trong khung hình"
+  }},
+
+
+  "foley_and_ambience": {{
+    "ambience": [
+      "Âm thanh nền (room tone, wind, rain, night ambience)"
+    ],
+    "fx": [
+      "Hiệu ứng âm thanh (footsteps, door creak, rustle)"
+    ],
+    "music": "Nhạc nền hoặc 'none'"
+  }},
+
+
+  "character_lock": {{
+    "CHAR_ID": {{
+      "id": "CHAR_ID",
+      "name": "Tên nhân vật",
+
+
+      "position": "Vị trí trong khung hình (left sofa, center foreground, near window)",
+      "orientation": "Hướng nhìn (toward camera, toward window, looking down)",
+      "pose": "Tư thế (sitting, standing, crouching, lying)",
+      "expression": "Biểu cảm (curious, surprised, calm, worried)",
+
+
+      "action_flow": {{
+        "pre_action": "Hành động nhỏ trước khi vào action chính",
+        "main_action": "Hành động chính của scene",
+        "post_action": "Hành động kết thúc / chuyển scene"
+      }}
+    }}
+  }},
+
+
+  "dialogue": [
+    {{
+      "speaker": "CHAR_ID",
+      "voice": "Mô tả giọng nói (cute, calm, whisper, excited)",
+      "language": "vi-VN",
+      "line": "Lời thoại (để trống nếu không có)"
+    }}
+  ],
+
+
+  "lip_sync_director_note": "Ghi chú cho AI về lip-sync (slow, clear mouth movement, minimal exaggeration)"
+}}
+
+
+
+
+QUAN TRỌNG:
+- character_lock chỉ chứa các nhân vật xuất hiện trong scene đó (mỗi character phải chứa đặc điểm từ characters.json)
+- Phải sử dụng character_id từ characters.json (CHAR_1, CHAR_2, ...)
+- Đảm bảo tính nhất quán về visual_style giữa các scenes
+- Dialogue phải tự nhiên và phù hợp với tính cách nhân vật
+- Mỗi scene phải có ý nghĩa và đóng góp vào câu chuyện tổng thể
+
+
+=== NỘI DUNG ===
+{content}
+
+
+=== NHÂN VẬT (characters.json) ===
+{characters_json}
+
+
+=== YÊU CẦU ===
+- Mỗi scene dài 8 giây
+- Sử dụng các nhân vật đã định nghĩa
+- Đảm bảo tính liên tục và logic giữa các scenes
+
+
+Hãy tạo danh sách scenes và trả về JSON array và có thể copy được JSON này.

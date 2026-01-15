@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: VEO3 Automation",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/veo3-automation/main.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/veo3-automation",
+      "python": "${workspaceFolder}/veo3-automation/venv/bin/python",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/veo3-automation/src"
+      },
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/veo3-automation",
+      "python": "${workspaceFolder}/veo3-automation/venv/bin/python",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Debug Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/veo3-automation",
+      "python": "${workspaceFolder}/veo3-automation/venv/bin/python",
+      "args": ["-v"],
+      "justMyCode": false
+    }
+  ]
+}
