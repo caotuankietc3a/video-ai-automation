@@ -148,6 +148,21 @@ class BrowserAutomation:
                 return await self.page.evaluate(script)
             else:
                 raise
+    
+    async def get_current_url(self) -> str:
+        if not self._is_page_valid():
+            await self.start()
+        if not self.page:
+            raise RuntimeError("Browser not started")
+        try:
+            return self.page.url
+        except Exception as e:
+            if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
+                logger.warning("Page context destroyed, restarting browser...")
+                await self.start()
+                return self.page.url
+            else:
+                raise
 
     async def set_input_files(self, selector: str, file_paths: List[str]) -> None:
         if not self._is_page_valid():
@@ -248,6 +263,55 @@ class BrowserAutomation:
                 logger.warning("Page context destroyed during query_selector, bỏ qua bước đồng ý")
             else:
                 logger.warning(f"Lỗi khi cố gắng đồng ý điều khoản Gemini: {e}")
+
+    async def login_to_google(self) -> None:
+        """
+        Đăng nhập vào Google account sử dụng email/password từ config.
+        Method này có thể tái sử dụng cho các flow khác nhau.
+        """
+        logger.info("Bắt đầu quá trình đăng nhập Google...")
+        
+        if not self._is_page_valid():
+            await self.start()
+        if not self.page:
+            raise RuntimeError("Browser not started")
+        
+        email = config_manager.get("gemini_account.email", "")
+        password = config_manager.get("gemini_account.password", "")
+        if not email or not password:
+            logger.warning("Không có cấu hình email/password, bỏ qua đăng nhập")
+            return
+        
+        logger.info(f"Đang đăng nhập với email: {email[:3]}***")
+        
+        try:
+            logger.info("Đang chờ form nhập email xuất hiện...")
+            email_selector = 'input[type="email"][id="identifierId"], input[type="email"][name="identifier"]'
+            await self.wait_for_selector(email_selector, timeout=self.timeout)
+            logger.info("Đã tìm thấy ô nhập email, đang điền email...")
+            await self.fill(email_selector, email)
+            await asyncio.sleep(0.5)
+            
+            logger.info("Đã điền email, đang click Next...")
+            next_button_selector = 'button:has-text("Next")'
+            await self.click(next_button_selector)
+            await asyncio.sleep(2)
+            
+            logger.info("Đang chờ form nhập password xuất hiện...")
+            password_selector = 'input[type="password"][name="Passwd"]'
+            await self.wait_for_selector(password_selector, timeout=self.timeout)
+            logger.info("Đã tìm thấy ô nhập password, đang điền password...")
+            await self.fill(password_selector, password)
+            await asyncio.sleep(0.5)
+            
+            logger.info("Đã điền password, đang click Next...")
+            await self.click(next_button_selector)
+            await asyncio.sleep(3)
+            
+            logger.info("Hoàn tất quá trình đăng nhập Google")
+        except Exception as e:
+            logger.error(f"Lỗi khi đăng nhập Google: {e}")
+            raise
 
     async def select_fast_mode(self) -> None:
         """

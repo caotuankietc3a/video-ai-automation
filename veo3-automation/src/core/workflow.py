@@ -134,23 +134,23 @@ class Workflow:
             if "logs" in self.update_callbacks:
                 self.update_callbacks["logs"]()
             
-            # use_browser = project_config.get("use_browser_automation", True)
-            # video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser)
-            # self.logger.info(
-            #     "Đã gọi generate_videos cho VEO3",
-            #     {
-            #         "num_requests": len(veo3_prompts),
-            #         "use_browser": use_browser,
-            #         "num_results": len(video_results),
-            #     },
-            # )
+            use_browser = project_config.get("use_browser_automation", True)
+            video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser)
+            self.logger.info(
+                "Đã gọi generate_videos cho VEO3",
+                {
+                    "num_requests": len(veo3_prompts),
+                    "use_browser": use_browser,
+                    "num_results": len(video_results),
+                },
+            )
             
             project = project_manager.load_project(project_config.get("file", ""))
             if project:
                 project["characters"] = characters
                 project["scenes"] = scenes
                 project["prompts"] = veo3_prompts
-                # project["videos"] = video_results
+                project["videos"] = video_results
                 project_manager.save_project(project)
                 self.logger.info(
                     "Đã lưu kết quả workflow vào project",
@@ -159,7 +159,7 @@ class Workflow:
                         "num_characters": len(characters) if isinstance(characters, dict) else None,
                         "num_scenes": len(scenes),
                         "num_prompts": len(veo3_prompts),
-                        # "num_videos": len(video_results),
+                        "num_videos": len(video_results),
                     },
                 )
             
@@ -186,4 +186,162 @@ class Workflow:
     def stop(self):
         self.is_running = False
         self.logger.info("Workflow stopped by user")
+    
+    async def run_step_analyze_video(self, video_paths: List[str], project_config: Dict[str, Any]) -> str:
+        if self.is_running:
+            raise RuntimeError("Workflow is already running")
+        
+        self.is_running = True
+        try:
+            script_text: str = project_config.get("script", "")
+            video_analysis_override = project_config.get("video_analysis_override")
+            if script_text:
+                self.logger.info("Dùng script_text từ project làm VIDEO_ANALYSIS")
+                video_analysis = script_text
+            elif video_analysis_override:
+                self.logger.info("Dùng video_analysis_override từ ô Kịch bản/Ý tưởng")
+                video_analysis = video_analysis_override
+            else:
+                self.logger.info("Bắt đầu phân tích video tự động")
+                video_analysis = await self.video_analyzer.analyze_videos(video_paths, self.project_name)
+                self.logger.info("Hoàn thành phân tích video")
+            
+            if "logs" in self.update_callbacks:
+                self.update_callbacks["logs"]()
+            
+            return video_analysis
+        finally:
+            self.is_running = False
+    
+    async def run_step_generate_content(self, video_analysis: str, project_config: Dict[str, Any]) -> Dict[str, Any]:
+        if self.is_running:
+            raise RuntimeError("Workflow is already running")
+        
+        self.is_running = True
+        try:
+            user_script = project_config.get("script", "")
+            content = await self.content_generator.generate_content(video_analysis, user_script, self.project_name)
+            self.logger.info("Đã tạo nội dung từ VIDEO_ANALYSIS")
+            
+            if "logs" in self.update_callbacks:
+                self.update_callbacks["logs"]()
+            
+            project_file = project_config.get("file", "")
+            if project_file:
+                project = project_manager.load_project(project_file)
+                if project:
+                    project["script"] = content.get("full_content", "")
+                    project_manager.save_project(project)
+            
+            return content
+        finally:
+            self.is_running = False
+    
+    async def run_step_extract_characters(self, content: str, project_config: Dict[str, Any]) -> Dict[str, Any]:
+        if self.is_running:
+            raise RuntimeError("Workflow is already running")
+        
+        self.is_running = True
+        try:
+            full_content = content if isinstance(content, str) else content.get("full_content", "")
+            characters = await self.character_extractor.extract_characters(full_content, self.project_name)
+            self.logger.info("Đã trích xuất nhân vật")
+            
+            if "characters" in self.update_callbacks:
+                self.update_callbacks["characters"](characters)
+            if "logs" in self.update_callbacks:
+                self.update_callbacks["logs"]()
+            
+            project_file = project_config.get("file", "")
+            if project_file:
+                project = project_manager.load_project(project_file)
+                if project:
+                    project["characters"] = characters
+                    project_manager.save_project(project)
+            
+            return characters
+        finally:
+            self.is_running = False
+    
+    async def run_step_generate_scenes(self, content: str, characters: Dict[str, Any], project_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if self.is_running:
+            raise RuntimeError("Workflow is already running")
+        
+        self.is_running = True
+        try:
+            full_content = content if isinstance(content, str) else content.get("full_content", "")
+            scenes = await self.scene_generator.generate_scenes(full_content, characters, self.project_name)
+            self.logger.info("Đã tạo scenes từ nội dung và nhân vật")
+            
+            if "scenes" in self.update_callbacks:
+                self.update_callbacks["scenes"](scenes)
+            if "logs" in self.update_callbacks:
+                self.update_callbacks["logs"]()
+            
+            project_file = project_config.get("file", "")
+            if project_file:
+                project = project_manager.load_project(project_file)
+                if project:
+                    project["scenes"] = scenes
+                    project_manager.save_project(project)
+            
+            return scenes
+        finally:
+            self.is_running = False
+    
+    async def run_step_generate_prompts(self, scenes: List[Dict[str, Any]], characters: Dict[str, Any], project_config: Dict[str, Any]) -> List[str]:
+        if self.is_running:
+            raise RuntimeError("Workflow is already running")
+        
+        self.is_running = True
+        try:
+            veo3_prompts = await self.veo3_prompt_generator.generate_prompts(scenes, characters, self.project_name)
+            self.logger.info("Đã tạo VEO3 prompts từ scenes")
+            
+            if "prompts" in self.update_callbacks:
+                self.update_callbacks["prompts"](veo3_prompts)
+            if "logs" in self.update_callbacks:
+                self.update_callbacks["logs"]()
+            
+            project_file = project_config.get("file", "")
+            if project_file:
+                project = project_manager.load_project(project_file)
+                if project:
+                    project["prompts"] = veo3_prompts
+                    project_manager.save_project(project)
+            
+            return veo3_prompts
+        finally:
+            self.is_running = False
+    
+    async def run_step_generate_videos(self, veo3_prompts: List[str], project_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if self.is_running:
+            raise RuntimeError("Workflow is already running")
+        
+        self.is_running = True
+        try:
+            use_browser = project_config.get("use_browser_automation", True)
+            video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser)
+            self.logger.info("Đã gọi generate_videos cho VEO3")
+            
+            if "videos" in self.update_callbacks:
+                self.update_callbacks["videos"](video_results)
+            if "logs" in self.update_callbacks:
+                self.update_callbacks["logs"]()
+            
+            project_file = project_config.get("file", "")
+            if project_file:
+                project = project_manager.load_project(project_file)
+                if project:
+                    project["videos"] = video_results
+                    project_manager.save_project(project)
+            
+            return video_results
+        finally:
+            self.is_running = False
+            from ..integrations.browser_automation import browser_automation
+            try:
+                await browser_automation.stop()
+            except Exception:
+                pass
 

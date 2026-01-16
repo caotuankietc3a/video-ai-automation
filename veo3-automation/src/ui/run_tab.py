@@ -7,6 +7,7 @@ from .result_panel import ResultPanel
 from ..core.workflow import Workflow
 from ..data.video_manager import video_manager
 from ..data.project_manager import project_manager
+from ..data.data_loader import data_loader
 from ..utils.logger import Logger
 
 class RunTab(ctk.CTkFrame):
@@ -24,24 +25,30 @@ class RunTab(ctk.CTkFrame):
             on_project_change=self._on_project_change, 
             on_start=self._start_workflow, 
             on_stop=self._stop_workflow,
-            on_analyze_video=self._analyze_video
+            on_analyze_video=self._analyze_video,
+            on_generate_content=lambda: self._run_step("generate_content")
         )
-        self.result_panel = ResultPanel(self)
+        self.result_panel = ResultPanel(self, on_run_step=self._run_step, on_retry_video=self._retry_video)
     
     def _on_project_change(self):
         project_file = self.project_panel.project_file_var.get()
         if project_file:
-            project = project_manager.load_project(project_file)
-            if project:
-                self.result_panel.update_characters(project.get("characters", {}))
-                self.result_panel.update_scenes(project.get("scenes", []))
-                self.result_panel.update_prompts(project.get("prompts", []))
-                self.result_panel.update_videos(project.get("videos", []))
+            project_data = data_loader.load_project_data(project_file)
+            if project_data:
+                self.result_panel.update_characters(project_data.get("characters", {}))
+                self.result_panel.update_scenes(project_data.get("scenes", []))
+                self.result_panel.update_prompts(project_data.get("prompts", []))
+                self.result_panel.update_videos(project_data.get("videos", []))
                 
-                if self.logger is None:
-                    self.logger = Logger(project.get("name", "default"))
+                project_name = project_data.get("project_name", "default")
+                if self.logger is None or (hasattr(self.logger, 'project_name') and self.logger.project_name != project_name):
+                    self.logger = Logger(project_name)
                 logs = self.logger.get_logs()
                 self.result_panel.update_logs(logs)
+                
+                if project_data.get("content"):
+                    self.project_panel.script_textbox.delete("1.0", "end")
+                    self.project_panel.script_textbox.insert("1.0", project_data.get("content", ""))
     
     def _start_workflow(self):
         if self.workflow and self.workflow.is_running:
@@ -164,5 +171,206 @@ class RunTab(ctk.CTkFrame):
                 loop.close()
         
         thread = threading.Thread(target=analyze_async, daemon=True)
+        thread.start()
+    
+    def _run_step(self, step_name: str):
+        if self.workflow and self.workflow.is_running:
+            messagebox.showwarning("Cảnh báo", "Workflow đang chạy!")
+            return
+        
+        project_config = self.project_panel.get_project_config()
+        project_name = project_config.get("name", "default")
+        
+        if not self.workflow or self.workflow.project_name != project_name:
+            self.workflow = Workflow(project_name)
+            self.logger = Logger(project_name)
+        
+        def progress_callback(message: str, progress: float):
+            self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+        
+        self.workflow.set_progress_callback(progress_callback)
+        
+        def update_ui_characters(characters):
+            self.after(0, lambda: self.result_panel.update_characters(characters))
+        
+        def update_ui_scenes(scenes):
+            self.after(0, lambda: self.result_panel.update_scenes(scenes))
+        
+        def update_ui_prompts(prompts):
+            self.after(0, lambda: self.result_panel.update_prompts(prompts))
+        
+        def update_ui_videos(videos):
+            self.after(0, lambda: self.result_panel.update_videos(videos))
+        
+        def update_ui_logs():
+            self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+        
+        self.workflow.set_update_callbacks(
+            on_characters=update_ui_characters,
+            on_scenes=update_ui_scenes,
+            on_prompts=update_ui_prompts,
+            on_videos=update_ui_videos,
+            on_logs=update_ui_logs
+        )
+        
+        def run_async():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                project_file = project_config.get("file", "")
+                project_data = data_loader.load_project_data(project_file) if project_file else {}
+                
+                if step_name == "generate_content":
+                    video_analysis = project_data.get("video_analysis") or self.project_panel.script_textbox.get("1.0", "end-1c")
+                    if not video_analysis:
+                        messagebox.showwarning("Cảnh báo", "Vui lòng có video analysis hoặc script trước!")
+                        return
+                    
+                    user_script = project_config.get("script", "")
+                    result = loop.run_until_complete(
+                        self.workflow.run_step_generate_content(video_analysis, project_config)
+                    )
+                    self.after(0, lambda: self._on_project_change())
+                    self.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo nội dung!"))
+                
+                elif step_name == "extract_characters":
+                    content = project_data.get("content") or self.project_panel.script_textbox.get("1.0", "end-1c")
+                    if not content:
+                        messagebox.showwarning("Cảnh báo", "Vui lòng có nội dung (content) trước!")
+                        return
+                    
+                    result = loop.run_until_complete(
+                        self.workflow.run_step_extract_characters(content, project_config)
+                    )
+                    self.after(0, lambda: self.result_panel.update_characters(result))
+                    self.after(0, lambda: self._on_project_change())
+                    self.after(0, lambda: messagebox.showinfo("Thành công", "Đã trích xuất nhân vật!"))
+                
+                elif step_name == "generate_scenes":
+                    content = project_data.get("content") or self.project_panel.script_textbox.get("1.0", "end-1c")
+                    characters = project_data.get("characters", {})
+                    
+                    if not content:
+                        messagebox.showwarning("Cảnh báo", "Vui lòng có nội dung (content) trước!")
+                        return
+                    if not characters:
+                        messagebox.showwarning("Cảnh báo", "Vui lòng trích xuất nhân vật trước!")
+                        return
+                    
+                    result = loop.run_until_complete(
+                        self.workflow.run_step_generate_scenes(content, characters, project_config)
+                    )
+                    self.after(0, lambda: self.result_panel.update_scenes(result))
+                    self.after(0, lambda: self._on_project_change())
+                    self.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo phân cảnh!"))
+                
+                elif step_name == "generate_prompts":
+                    scenes = project_data.get("scenes", [])
+                    characters = project_data.get("characters", {})
+                    
+                    if not scenes:
+                        messagebox.showwarning("Cảnh báo", "Vui lòng tạo phân cảnh trước!")
+                        return
+                    if not characters:
+                        messagebox.showwarning("Cảnh báo", "Vui lòng trích xuất nhân vật trước!")
+                        return
+                    
+                    result = loop.run_until_complete(
+                        self.workflow.run_step_generate_prompts(scenes, characters, project_config)
+                    )
+                    self.after(0, lambda: self.result_panel.update_prompts(result))
+                    self.after(0, lambda: self._on_project_change())
+                    self.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo prompts VEO3!"))
+                
+                elif step_name == "generate_videos":
+                    prompts = project_data.get("prompts", [])
+                    
+                    if not prompts:
+                        messagebox.showwarning("Cảnh báo", "Vui lòng tạo prompts VEO3 trước!")
+                        return
+                    
+                    result = loop.run_until_complete(
+                        self.workflow.run_step_generate_videos(prompts, project_config)
+                    )
+                    self.after(0, lambda: self.result_panel.update_videos(result))
+                    self.after(0, lambda: self._on_project_change())
+                    self.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo video VEO3!"))
+                
+            except Exception as e:
+                error_msg = str(e)
+                self.after(0, lambda msg=error_msg: messagebox.showerror("Lỗi", f"Step thất bại: {msg}"))
+            finally:
+                loop.close()
+        
+        thread = threading.Thread(target=run_async, daemon=True)
+        thread.start()
+    
+    def _retry_video(self, index: int, prompt: str):
+        if self.workflow and self.workflow.is_running:
+            messagebox.showwarning("Cảnh báo", "Workflow đang chạy!")
+            return
+        
+        project_config = self.project_panel.get_project_config()
+        project_name = project_config.get("name", "default")
+        
+        if not self.workflow or self.workflow.project_name != project_name:
+            self.workflow = Workflow(project_name)
+            self.logger = Logger(project_name)
+        
+        def progress_callback(message: str, progress: float):
+            self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+        
+        self.workflow.set_progress_callback(progress_callback)
+        
+        def update_ui_logs():
+            self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+        
+        self.workflow.set_update_callbacks(
+            on_logs=update_ui_logs
+        )
+        
+        def retry_async():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                from ..integrations.veo3_flow import veo3_flow
+                use_browser = project_config.get("use_browser_automation", True)
+                result = loop.run_until_complete(
+                    veo3_flow.retry_video(prompt, project_config, use_browser)
+                )
+                
+                project_file = project_config.get("file", "")
+                if project_file:
+                    project_data = data_loader.load_project_data(project_file) if project_file else {}
+                    videos = project_data.get("videos", [])
+                    
+                    if index < len(videos):
+                        videos[index] = result
+                    else:
+                        videos.append(result)
+                    
+                    from ..data.project_manager import project_manager
+                    project = project_manager.load_project(project_file)
+                    if project:
+                        project["videos"] = videos
+                        project_manager.save_project(project)
+                    
+                    self.after(0, lambda vids=videos: self.result_panel.update_videos(vids))
+                    self.after(0, lambda: self._on_project_change())
+                else:
+                    self.after(0, lambda vid=result: self.result_panel.update_videos([vid]))
+                
+                if result.get("status") == "SUCCESSFUL":
+                    self.after(0, lambda: messagebox.showinfo("Thành công", "Đã retry video thành công!"))
+                else:
+                    error_msg = result.get("error", "Unknown error")
+                    self.after(0, lambda msg=error_msg: messagebox.showerror("Lỗi", f"Retry video thất bại: {msg}"))
+            except Exception as e:
+                error_msg = str(e)
+                self.after(0, lambda msg=error_msg: messagebox.showerror("Lỗi", f"Retry video thất bại: {msg}"))
+            finally:
+                loop.close()
+        
+        thread = threading.Thread(target=retry_async, daemon=True)
         thread.start()
 

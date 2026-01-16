@@ -6,12 +6,13 @@ from ..config.constants import VIDEO_STYLES, VEO_PROFILES, ASPECT_RATIOS
 class ProjectPanel(ctk.CTkFrame):
     def __init__(self, parent, on_project_change: Optional[Callable] = None, 
                  on_start: Optional[Callable] = None, on_stop: Optional[Callable] = None,
-                 on_analyze_video: Optional[Callable] = None):
+                 on_analyze_video: Optional[Callable] = None, on_generate_content: Optional[Callable] = None):
         super().__init__(parent)
         self.on_project_change = on_project_change
         self.on_start = on_start
         self.on_stop = on_stop
         self.on_analyze_video = on_analyze_video
+        self.on_generate_content = on_generate_content
         self.current_project = None
         self._setup_ui()
     
@@ -64,6 +65,15 @@ class ProjectPanel(ctk.CTkFrame):
         copy_idea_btn = ctk.CTkButton(run_type_frame, text="Copy ý tưởng", width=100, command=self._copy_idea)
         copy_idea_btn.pack(side="left", padx=2)
         
+        project_link_label = ctk.CTkLabel(self, text="Project Link (Flow):")
+        project_link_label.pack(pady=(10, 5))
+        
+        project_link_frame = ctk.CTkFrame(self)
+        project_link_frame.pack(fill="x", padx=10, pady=5)
+        
+        self.project_link_entry = ctk.CTkEntry(project_link_frame, placeholder_text="https://labs.google/fx/tools/flow/project/...")
+        self.project_link_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
         upload_video_btn = ctk.CTkButton(self, text="Upload Video", command=self._upload_video)
         upload_video_btn.pack(fill="x", padx=10, pady=5)
         
@@ -75,6 +85,9 @@ class ProjectPanel(ctk.CTkFrame):
         
         analyze_btn = ctk.CTkButton(script_frame, text="Phân tích video", width=120, command=self._on_analyze_video)
         analyze_btn.pack(side="right", padx=5)
+        
+        generate_content_btn = ctk.CTkButton(script_frame, text="Tạo nội dung", width=120, command=self._on_generate_content, fg_color="green")
+        generate_content_btn.pack(side="right", padx=5)
         
         self.script_textbox = ctk.CTkTextbox(self, height=150)
         self.script_textbox.pack(fill="both", expand=True, padx=10, pady=5)
@@ -169,6 +182,8 @@ class ProjectPanel(ctk.CTkFrame):
         self.duration_entry.insert(0, str(project.get("duration", 120)))
         self.veo_profile_var.set(project.get("veo_profile", "VEO3 ULTRA"))
         self.ai_model_var.set(project.get("ai_model", "VEO3 ULTRA"))
+        self.project_link_entry.delete(0, "end")
+        self.project_link_entry.insert(0, project.get("project_link", ""))
     
     def _new_project(self):
         name = self.project_name_entry.get() or "New Project"
@@ -197,7 +212,8 @@ class ProjectPanel(ctk.CTkFrame):
             "style": self.style_var.get(),
             "duration": int(self.duration_entry.get() or 120),
             "veo_profile": self.veo_profile_var.get(),
-            "ai_model": self.ai_model_var.get()
+            "ai_model": self.ai_model_var.get(),
+            "project_link": self.project_link_entry.get()
         }
         
         project_manager.update_project(self.current_project["file"], project_data)
@@ -257,6 +273,10 @@ class ProjectPanel(ctk.CTkFrame):
         if self.on_analyze_video:
             self.on_analyze_video()
     
+    def _on_generate_content(self):
+        if self.on_generate_content:
+            self.on_generate_content()
+    
     def update_video_analysis(self, video_analysis: str):
         self.script_textbox.delete("1.0", "end")
         self.script_textbox.insert("1.0", video_analysis)
@@ -270,6 +290,7 @@ class ProjectPanel(ctk.CTkFrame):
             "duration": int(self.duration_entry.get() or 120),
             "veo_profile": self.veo_profile_var.get(),
             "ai_model": self.ai_model_var.get(),
-            "run_type": self.run_type_var.get()
+            "run_type": self.run_type_var.get(),
+            "project_link": self.project_link_entry.get()
         }
 
