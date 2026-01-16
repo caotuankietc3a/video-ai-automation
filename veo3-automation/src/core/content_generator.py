@@ -20,11 +20,11 @@ class ContentGenerator:
         else:
             self.web_client = None
     
-    async def generate_content(self, video_analysis: str, user_script: str = "", project_name: Optional[str] = None) -> dict:
+    async def generate_content(self, video_analysis: str, user_script: str = "", project_name: Optional[str] = None, project_config: Optional[dict] = None) -> dict:
         prompt = prompt_templates.get_video_to_content(video_analysis, user_script)
         
         if self.use_browser and self.web_client is not None:
-            content_text = await self.web_client.generate(prompt)
+            content_text = await self.web_client.generate(prompt, project_config)
         else:
             if not self.provider.is_available():
                 raise RuntimeError(f"AI provider {self.provider_name} is not available")

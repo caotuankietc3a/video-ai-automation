@@ -13,6 +13,18 @@ class ResultPanel(ctk.CTkFrame):
         self._setup_ui()
     
     def _setup_ui(self):
+        self.status_frame = ctk.CTkFrame(self)
+        self.status_frame.pack(fill="x", padx=10, pady=5)
+        
+        status_label = ctk.CTkLabel(self.status_frame, text="Project Links:", font=ctk.CTkFont(size=12, weight="bold"))
+        status_label.pack(side="left", padx=5)
+        
+        self.gemini_link_label = ctk.CTkLabel(self.status_frame, text="Gemini: Chưa có", fg_color="gray", corner_radius=5)
+        self.gemini_link_label.pack(side="left", padx=5)
+        
+        self.flow_link_label = ctk.CTkLabel(self.status_frame, text="Flow VEO3: Chưa có", fg_color="gray", corner_radius=5)
+        self.flow_link_label.pack(side="left", padx=5)
+        
         self.tabview = ctk.CTkTabview(self)
         self.tabview.pack(fill="both", expand=True)
         
@@ -112,4 +124,74 @@ class ResultPanel(ctk.CTkFrame):
     
     def update_logs(self, logs):
         self.log_view.update_logs(logs)
+    
+    def update_project_links(self, gemini_link: str = "", flow_link: str = ""):
+        import webbrowser
+        
+        if gemini_link:
+            project_id = gemini_link.split('/')[-1].split('?')[0]
+            display_text = f"Gemini: {project_id[:15]}..." if len(project_id) > 15 else f"Gemini: {project_id}"
+            self.gemini_link_label.configure(
+                text=display_text,
+                fg_color="green",
+                cursor="hand2"
+            )
+            self.gemini_link_label.bind("<Button-1>", lambda e, link=gemini_link: webbrowser.open(link))
+            self.gemini_link_label.bind("<Enter>", lambda e, link=gemini_link: self._show_tooltip(e, link))
+            self.gemini_link_label.bind("<Leave>", lambda e: self._hide_tooltip())
+        else:
+            self.gemini_link_label.configure(
+                text="Gemini: Chưa có",
+                fg_color="gray",
+                cursor=""
+            )
+            self.gemini_link_label.unbind("<Button-1>")
+            self.gemini_link_label.unbind("<Enter>")
+            self.gemini_link_label.unbind("<Leave>")
+        
+        if flow_link:
+            project_id = flow_link.split('/')[-1].split('?')[0]
+            display_text = f"Flow VEO3: {project_id[:15]}..." if len(project_id) > 15 else f"Flow VEO3: {project_id}"
+            self.flow_link_label.configure(
+                text=display_text,
+                fg_color="blue",
+                cursor="hand2"
+            )
+            self.flow_link_label.bind("<Button-1>", lambda e, link=flow_link: webbrowser.open(link))
+            self.flow_link_label.bind("<Enter>", lambda e, link=flow_link: self._show_tooltip(e, link))
+            self.flow_link_label.bind("<Leave>", lambda e: self._hide_tooltip())
+        else:
+            self.flow_link_label.configure(
+                text="Flow VEO3: Chưa có",
+                fg_color="gray",
+                cursor=""
+            )
+            self.flow_link_label.unbind("<Button-1>")
+            self.flow_link_label.unbind("<Enter>")
+            self.flow_link_label.unbind("<Leave>")
+    
+    def _show_tooltip(self, event, link: str):
+        if hasattr(self, '_tooltip'):
+            self._tooltip.destroy()
+        
+        self._tooltip = ctk.CTkToplevel(self)
+        self._tooltip.wm_overrideredirect(True)
+        self._tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+        
+        label = ctk.CTkLabel(
+            self._tooltip,
+            text=link,
+            bg_color="gray20",
+            fg_color="gray20",
+            corner_radius=5,
+            padx=10,
+            pady=5
+        )
+        label.pack()
+        self._tooltip.lift()
+    
+    def _hide_tooltip(self):
+        if hasattr(self, '_tooltip'):
+            self._tooltip.destroy()
+            delattr(self, '_tooltip')
 

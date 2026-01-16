@@ -49,6 +49,11 @@ class RunTab(ctk.CTkFrame):
                 if project_data.get("content"):
                     self.project_panel.script_textbox.delete("1.0", "end")
                     self.project_panel.script_textbox.insert("1.0", project_data.get("content", ""))
+                
+                project = project_data.get("project", {})
+                gemini_link = project.get("gemini_project_link", "")
+                flow_link = project.get("project_link", "")
+                self.result_panel.update_project_links(gemini_link, flow_link)
     
     def _start_workflow(self):
         if self.workflow and self.workflow.is_running:
@@ -99,6 +104,9 @@ class RunTab(ctk.CTkFrame):
             asyncio.set_event_loop(loop)
             try:
                 result = loop.run_until_complete(self.workflow.run(self.video_paths, project_config))
+                gemini_link = project_config.get("gemini_project_link", "")
+                flow_link = project_config.get("project_link", "")
+                self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                 self.after(0, lambda: self.result_panel.update_characters(result.get("characters", {})))
                 self.after(0, lambda: self.result_panel.update_scenes(result.get("scenes", [])))
                 self.after(0, lambda: self.result_panel.update_prompts(result.get("prompts", [])))
@@ -230,6 +238,9 @@ class RunTab(ctk.CTkFrame):
                     result = loop.run_until_complete(
                         self.workflow.run_step_generate_content(video_analysis, project_config)
                     )
+                    gemini_link = project_config.get("gemini_project_link", "")
+                    flow_link = project_config.get("project_link", "")
+                    self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                     self.after(0, lambda: self._on_project_change())
                     self.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo nội dung!"))
                 
@@ -242,6 +253,9 @@ class RunTab(ctk.CTkFrame):
                     result = loop.run_until_complete(
                         self.workflow.run_step_extract_characters(content, project_config)
                     )
+                    gemini_link = project_config.get("gemini_project_link", "")
+                    flow_link = project_config.get("project_link", "")
+                    self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                     self.after(0, lambda: self.result_panel.update_characters(result))
                     self.after(0, lambda: self._on_project_change())
                     self.after(0, lambda: messagebox.showinfo("Thành công", "Đã trích xuất nhân vật!"))
@@ -260,6 +274,9 @@ class RunTab(ctk.CTkFrame):
                     result = loop.run_until_complete(
                         self.workflow.run_step_generate_scenes(content, characters, project_config)
                     )
+                    gemini_link = project_config.get("gemini_project_link", "")
+                    flow_link = project_config.get("project_link", "")
+                    self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                     self.after(0, lambda: self.result_panel.update_scenes(result))
                     self.after(0, lambda: self._on_project_change())
                     self.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo phân cảnh!"))
@@ -278,6 +295,9 @@ class RunTab(ctk.CTkFrame):
                     result = loop.run_until_complete(
                         self.workflow.run_step_generate_prompts(scenes, characters, project_config)
                     )
+                    gemini_link = project_config.get("gemini_project_link", "")
+                    flow_link = project_config.get("project_link", "")
+                    self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                     self.after(0, lambda: self.result_panel.update_prompts(result))
                     self.after(0, lambda: self._on_project_change())
                     self.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo prompts VEO3!"))
@@ -292,6 +312,9 @@ class RunTab(ctk.CTkFrame):
                     result = loop.run_until_complete(
                         self.workflow.run_step_generate_videos(prompts, project_config)
                     )
+                    gemini_link = project_config.get("gemini_project_link", "")
+                    flow_link = project_config.get("project_link", "")
+                    self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                     self.after(0, lambda: self.result_panel.update_videos(result))
                     self.after(0, lambda: self._on_project_change())
                     self.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo video VEO3!"))

@@ -9,15 +9,28 @@ logger = logging.getLogger(__name__)
 
 
 class WebContentGenerator:
-    def __init__(self) -> None:
-        self.url: str = config_manager.get(
-            "content_generation.url",
-            "https://gemini.google.com/app",
-        )
+    def __init__(self, gemini_project_link: Optional[str] = None) -> None:
+        if gemini_project_link:
+            self.url = gemini_project_link
+        else:
+            self.url: str = config_manager.get(
+                "content_generation.url",
+                "https://gemini.google.com/app",
+            )
 
-    async def generate(self, prompt: str) -> str:
+    async def generate(self, prompt: str, project_config: Optional[dict] = None) -> str:
         await browser_automation.start()
-        await browser_automation.navigate(self.url)
+        
+        gemini_link = None
+        if project_config:
+            gemini_link = project_config.get("gemini_project_link", "")
+        
+        if gemini_link:
+            url_to_use = gemini_link
+        else:
+            url_to_use = self.url
+        
+        await browser_automation.navigate(url_to_use)
 
         await browser_automation.ensure_gemini_login()
         await browser_automation.select_fast_mode()
@@ -62,4 +75,21 @@ class WebContentGenerator:
         text = await browser_automation.get_text(response_selector)
         if not text:
             raise RuntimeError("Không lấy được nội dung từ web UI")
+        
+        if project_config and not project_config.get("gemini_project_link"):
+            try:
+                current_url = await browser_automation.get_current_url()
+                if current_url and "/app/" in current_url:
+                    project_id = current_url.split("/app/")[-1].split("?")[0].split("/")[0]
+                    if project_id:
+                        gemini_link = f"https://gemini.google.com/app/{project_id}"
+                        project_config["gemini_project_link"] = gemini_link
+                        from ..data.project_manager import project_manager
+                        project_file = project_config.get("file", "")
+                        if project_file:
+                            project_manager.update_project(project_file, {"gemini_project_link": gemini_link})
+                            logger.info(f"Đã lưu gemini_project_link: {gemini_link}")
+            except Exception as e:
+                logger.warning(f"Không thể lưu gemini_project_link: {e}")
+        
         return text.strip()

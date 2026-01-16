@@ -20,12 +20,12 @@ class SceneGenerator:
         else:
             self.web_client = None
     
-    async def generate_scenes(self, content: str, characters_json: Dict[str, Any], project_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def generate_scenes(self, content: str, characters_json: Dict[str, Any], project_name: Optional[str] = None, project_config: Optional[dict] = None) -> List[Dict[str, Any]]:
         characters_str = json.dumps(characters_json, ensure_ascii=False, indent=2)
         prompt = prompt_templates.get_content_to_scene(content, characters_str)
         
         if self.use_browser and self.web_client is not None:
-            response_text = await self.web_client.generate(prompt)
+            response_text = await self.web_client.generate(prompt, project_config)
         else:
             if not self.provider.is_available():
                 raise RuntimeError(f"AI provider {self.provider_name} is not available")

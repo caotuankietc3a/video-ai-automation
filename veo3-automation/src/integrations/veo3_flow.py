@@ -9,99 +9,304 @@ class VEO3Flow:
         self.gemini_client = GeminiClient()
         self.flow_url = "https://labs.google/fx/tools/flow"
     
-    async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _navigate_to_project(self, project_config: Dict[str, Any]) -> bool:
+        project_link = project_config.get("project_link", "")
+        is_new_project = False
+        
+        if project_link:
+            await browser_automation.navigate(project_link)
+            await asyncio.sleep(3)
+            await browser_automation.login_to_google()
+            await asyncio.sleep(2)
+        else:
+            is_new_project = True
+            await browser_automation.navigate(self.flow_url)
+            await asyncio.sleep(2)
+            
+            create_with_flow_selector = 'button:has-text("Create with Flow")'
+            await browser_automation.wait_for_selector(create_with_flow_selector, timeout=60000)
+            await browser_automation.click(create_with_flow_selector)
+            await asyncio.sleep(2)
+            
+            await browser_automation.login_to_google()
+            await asyncio.sleep(3)
+            
+            new_project_selector = 'button:has-text("New project")'
+            await browser_automation.wait_for_selector(new_project_selector, timeout=10000)
+            await browser_automation.click(new_project_selector)
+            await asyncio.sleep(2)
+            
+            current_url = await browser_automation.get_current_url()
+            if current_url and "/project/" in current_url:
+                project_id = current_url.split("/project/")[-1].split("?")[0]
+                project_link = f"https://labs.google/fx/tools/flow/project/{project_id}"
+                project_config["project_link"] = project_link
+                from ..data.project_manager import project_manager
+                project_file = project_config.get("file", "")
+                if project_file:
+                    project_manager.update_project(project_file, {"project_link": project_link})
+        
+        return is_new_project
+    
+    async def _click_scenebuilder(self):
         try:
-            await browser_automation.start()
+            scenebuilder_button_selector = (
+                'button:has-text("Scenebuilder"), '
+                'button.sc-da5b7836-6:has-text("Scenebuilder"), '
+                'button.kNmMDQ:has-text("Scenebuilder")'
+            )
+            await browser_automation.wait_for_selector(scenebuilder_button_selector, timeout=10000)
+            await browser_automation.click(scenebuilder_button_selector)
+            await asyncio.sleep(2)
+            return True
+        except Exception as e:
+            print(f"Warning: Không thể click Scenebuilder: {e}, tiếp tục bình thường")
+            return False
+    
+    async def _configure_aspect_ratio(self, project_config: Dict[str, Any]):
+        aspect_ratio = project_config.get("aspect_ratio", "Khổ ngang (16:9)")
+        is_portrait = "dọc" in aspect_ratio or "Portrait" in aspect_ratio or "9:16" in aspect_ratio
+        
+        try:
+            settings_button_selector = (
+                'button[aria-haspopup="dialog"][aria-controls*="radix"]:has(i.material-icons-outlined:has-text("tune")), '
+                'button[aria-label*="Settings"][aria-haspopup="dialog"], '
+                'button:has(i.material-icons-outlined):has-text("Settings")'
+            )
+            await browser_automation.wait_for_selector(settings_button_selector, timeout=5000)
+            await browser_automation.click(settings_button_selector)
+            await asyncio.sleep(1.5)
             
-            project_link = project_config.get("project_link", "")
-            if project_link:
-                await browser_automation.navigate(project_link)
-                await asyncio.sleep(3)
-                await browser_automation.login_to_google()
-                await asyncio.sleep(2)
+            aspect_ratio_button_selector = (
+                'button[role="combobox"][aria-controls*="radix"]:has-text("Aspect Ratio"), '
+                'button[role="combobox"]:has(span:has-text("Aspect Ratio")), '
+                'button[role="combobox"][aria-expanded="false"]'
+            )
+            await browser_automation.wait_for_selector(aspect_ratio_button_selector, timeout=5000)
+            await browser_automation.click(aspect_ratio_button_selector)
+            await asyncio.sleep(1.5)
+            
+            if is_portrait:
+                option_selector = (
+                    'div[role="option"]:has-text("Portrait (9:16)"), '
+                    'div[role="option"]:has-text("Portrait"), '
+                    'div[role="option"][aria-labelledby*="radix"]:has(span:has-text("Portrait"))'
+                )
             else:
-                await browser_automation.navigate(self.flow_url)
-                await asyncio.sleep(2)
-                
-                create_with_flow_selector = 'button:has-text("Create with Flow")'
-                await browser_automation.wait_for_selector(create_with_flow_selector, timeout=60000)
-                await browser_automation.click(create_with_flow_selector)
-                await asyncio.sleep(2)
-                
-                await browser_automation.login_to_google()
-                await asyncio.sleep(3)
-                
-                new_project_selector = 'button:has-text("New project")'
-                await browser_automation.wait_for_selector(new_project_selector, timeout=10000)
-                await browser_automation.click(new_project_selector)
-                await asyncio.sleep(2)
-                
-                current_url = await browser_automation.get_current_url()
-                if current_url and "/project/" in current_url:
-                    project_id = current_url.split("/project/")[-1].split("?")[0]
-                    project_link = f"https://labs.google/fx/tools/flow/project/{project_id}"
-                    project_config["project_link"] = project_link
-                    from ..data.project_manager import project_manager
-                    project_file = project_config.get("file", "")
-                    if project_file:
-                        project_manager.update_project(project_file, {"project_link": project_link})
+                option_selector = (
+                    'div[role="option"]:has-text("Landscape (16:9)"), '
+                    'div[role="option"]:has-text("Landscape"), '
+                    'div[role="option"][aria-labelledby*="radix"]:has(span:has-text("Landscape"))'
+                )
             
-            prompt_input_selector = 'textarea[placeholder*="Generate a video"]'
-            await browser_automation.wait_for_selector(prompt_input_selector, timeout=10000)
-            await browser_automation.fill(prompt_input_selector, prompt)
+            await browser_automation.wait_for_selector(option_selector, timeout=5000)
+            await browser_automation.click(option_selector)
+            await asyncio.sleep(1.5)
             
-            await asyncio.sleep(1)
-            
-            generate_button_selector = 'button:has-text("Generate"), button:has-text("Create"), button[type="submit"]'
-            await browser_automation.click(generate_button_selector)
-            
-            await asyncio.sleep(5)
-            
-            status_selector = '[data-status], .status, .generating'
-            status = await browser_automation.get_text(status_selector)
-            
-            max_wait = 300
-            waited = 0
-            while "generating" in status.lower() or "processing" in status.lower():
-                await asyncio.sleep(5)
-                waited += 5
-                if waited >= max_wait:
-                    break
-                status = await browser_automation.get_text(status_selector)
-            
-            video_selector = 'video, [data-video], .video-result'
-            await browser_automation.wait_for_selector(video_selector, timeout=60000)
-            
-            has_add_to_scene = await browser_automation.evaluate("""
+            try:
+                await browser_automation.evaluate("""
+                    () => {
+                        const event = new KeyboardEvent('keydown', { 
+                            key: 'Escape', 
+                            code: 'Escape', 
+                            keyCode: 27, 
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        document.activeElement?.dispatchEvent(event);
+                        document.dispatchEvent(event);
+                        return true;
+                    }
+                """)
+                await asyncio.sleep(0.5)
+            except:
+                pass
+        except Exception as e:
+            print(f"Warning: Không thể set aspect ratio: {e}, tiếp tục với settings mặc định")
+    
+    async def _fill_prompt_and_generate(self, prompt: str):
+        prompt_input_selector = 'textarea[placeholder*="Generate a video"]'
+        await browser_automation.wait_for_selector(prompt_input_selector, timeout=60000)
+        await browser_automation.fill(prompt_input_selector, prompt)
+        await asyncio.sleep(1)
+        
+        generate_button_selector = 'button:has-text("Generate"), button:has-text("Create"), button[type="submit"]'
+        await browser_automation.click(generate_button_selector)
+        await asyncio.sleep(5)
+    
+    async def _wait_for_video_completion(self) -> bool:
+        max_wait = 600
+        waited = 0
+        check_interval = 3
+        
+        while waited < max_wait:
+            result = await browser_automation.evaluate("""
                 () => {
                     const html = document.documentElement.outerHTML;
-                    return html.includes('Add to scene') || html.includes('add to scene');
-                }
-            """)
-            
-            if not has_add_to_scene:
-                max_wait = 60
-                waited = 0
-                while not has_add_to_scene and waited < max_wait:
-                    await asyncio.sleep(2)
-                    waited += 2
-                    has_add_to_scene = await browser_automation.evaluate("""
-                        () => {
-                            const html = document.documentElement.outerHTML;
-                            return html.includes('Add to scene') || html.includes('add to scene');
+                    
+                    const lottieContainer = document.querySelector('[id="lottie"], .lf-player-container');
+                    let loadingPercent = null;
+                    let loadingText = '';
+                    
+                    if (!loadingPercent) {
+                        const allElements = document.querySelectorAll('div');
+                        for (let el of allElements) {
+                            const text = el.textContent || '';
+                            if (text.trim().match(/^\\d+%$/) && el.offsetParent !== null) {
+                                loadingPercent = el;
+                                loadingText = text.trim();
+                                break;
+                            }
                         }
-                    """)
-            
-            video_url = await browser_automation.evaluate("""
-                () => {
-                    const video = document.querySelector('video, [data-video], .video-result');
-                    return video ? video.src || video.getAttribute('src') : null;
+                    }
+                    
+                    const hasLoading = loadingPercent !== null || lottieContainer !== null;
+                    
+                    const videoElement = document.querySelector('video, [data-video], .video-result');
+                    const hasVideo = videoElement !== null && videoElement.src && videoElement.src.length > 0;
+                    
+                    const isComplete = (hasVideo && !hasLoading);
+                    
+                    return {
+                        hasLoading: hasLoading,
+                        hasVideo: hasVideo,
+                        loadingText: loadingText,
+                        isComplete: isComplete
+                    };
                 }
             """)
+            
+            if result.get("isComplete"):
+                return True
+            
+            loading_text = result.get("loadingText", "")
+            if loading_text and "%" in loading_text:
+                print(f"Video đang được tạo: {loading_text.strip()}")
+            
+            await asyncio.sleep(check_interval)
+            waited += check_interval
+        
+        return False
+    
+    async def _extract_video_result(self) -> Optional[str]:
+        video_url = await browser_automation.evaluate("""
+            () => {
+                const video = document.querySelector('video, [data-video], .video-result');
+                return video ? video.src || video.getAttribute('src') : null;
+            }
+        """)
+        return video_url
+    
+    async def _scroll_to_last_scene(self):
+        try:
+            slider_thumb_selector = 'span[role="slider"][aria-orientation="horizontal"]'
+            await browser_automation.wait_for_selector(slider_thumb_selector, timeout=60000)
+            await asyncio.sleep(0.5)
+            
+            track_info = await browser_automation.evaluate("""
+                () => {
+                    const sliderThumb = document.querySelector('span[role="slider"][aria-orientation="horizontal"]');
+                    if (!sliderThumb) return null;
+                    
+                    const sliderContainer = sliderThumb.closest('span[style*="transform"]');
+                    if (!sliderContainer) return null;
+                    
+                    const sliderTrack = sliderThumb.closest('[data-radix-slider-root]') || 
+                                       sliderThumb.closest('[class*="slider"]') ||
+                                       sliderThumb.parentElement?.parentElement;
+                    if (!sliderTrack) return null;
+                    
+                    const trackRect = sliderTrack.getBoundingClientRect();
+                    const thumbRect = sliderThumb.getBoundingClientRect();
+                    
+                    return {
+                        thumbX: trackRect.left + trackRect.width - thumbRect.width - 6,
+                        thumbY: trackRect.top + thumbRect.height / 2,
+                        trackWidth: trackRect.width,
+                        trackLeft: trackRect.left
+                    };
+                }
+            """)
+            
+            if not track_info:
+                return False
+            
+            await browser_automation.evaluate("""
+                () => {
+                    const sliderThumb = document.querySelector('span[role="slider"][aria-orientation="horizontal"]');
+                    if (!sliderThumb) return false;
+                    
+                    const sliderContainer = sliderThumb.closest('span[style*="transform"]');
+                    if (!sliderContainer) return false;
+                    
+                    sliderContainer.style.left = 'calc(100% - 6px)';
+                    sliderThumb.setAttribute('aria-valuenow', '100');
+                    
+                    const inputEvent = new Event('input', { bubbles: true });
+                    sliderThumb.dispatchEvent(inputEvent);
+                    
+                    const changeEvent = new Event('change', { bubbles: true });
+                    sliderThumb.dispatchEvent(changeEvent);
+                    
+                    return true;
+                }
+            """)
+            
+            await asyncio.sleep(1)
+            return True
+        except Exception as e:
+            print(f"Warning: Không thể kéo slider đến cuối: {e}")
+            return False
+    
+    async def _click_current_video(self):
+        try:
+            success = await browser_automation.evaluate("""
+                () => {
+                    const video = document.querySelector('video[src*="blob"], video[src*="http"]');
+                    if (!video) return false;
+                    
+                    video.click();
+                    return true;
+                }
+            """)
+            
+            if success:
+                await asyncio.sleep(1)
+                return True
+            
+            video_selector = 'video[src*="blob"], video[src*="http"], video'
+            await browser_automation.wait_for_selector(video_selector, timeout=5000)
+            await browser_automation.click(video_selector)
+            await asyncio.sleep(1)
+            return True
+        except Exception as e:
+            print(f"Warning: Không thể click video: {e}")
+            return False
+    
+    async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any], is_first_video: bool = True) -> Optional[Dict[str, Any]]:
+        try:
+            if is_first_video:
+                await browser_automation.start()
+                
+                is_new_project = await self._navigate_to_project(project_config)
+                
+                if is_new_project:
+                    await self._click_scenebuilder()
+                
+                await self._configure_aspect_ratio(project_config)
+            else:
+                await self._scroll_to_last_scene()
+                await self._click_current_video()
+                await asyncio.sleep(1)
+            
+            await self._fill_prompt_and_generate(prompt)
+            
+            is_complete = await self._wait_for_video_completion()
+            video_url = await self._extract_video_result()
             
             return {
                 "video_url": video_url,
-                "success": has_add_to_scene,
+                "success": is_complete,
                 "project_link": project_config.get("project_link", "")
             }
             
@@ -137,7 +342,7 @@ class VEO3Flow:
         scene_id = f"scene_retry"
         try:
             if use_browser:
-                video_result = await self.generate_video_via_browser(prompt, project_config)
+                video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=False)
                 if isinstance(video_result, dict):
                     video_url = video_result.get("video_url")
                     success = video_result.get("success", False)
@@ -190,9 +395,11 @@ class VEO3Flow:
         
         for i, prompt in enumerate(prompts):
             scene_id = f"scene_{i+1}"
+            is_first_video = (i == 0)
+            
             try:
                 if use_browser:
-                    video_result = await self.generate_video_via_browser(prompt, project_config)
+                    video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=is_first_video)
                     if isinstance(video_result, dict):
                         video_url = video_result.get("video_url")
                         success = video_result.get("success", False)
@@ -223,13 +430,13 @@ class VEO3Flow:
                         })
                 else:
                     video_url = await self.generate_video_via_api(prompt, project_config)
-                    results.append({
-                        "scene_id": scene_id,
-                        "prompt": prompt,
-                        "status": "SUCCESSFUL" if video_url else "FAILED",
-                        "video_url": video_url,
-                        "video_path": None
-                    })
+                results.append({
+                    "scene_id": scene_id,
+                    "prompt": prompt,
+                    "status": "SUCCESSFUL" if video_url else "FAILED",
+                    "video_url": video_url,
+                    "video_path": None
+                })
                 
             except Exception as e:
                 results.append({

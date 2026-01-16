@@ -22,7 +22,7 @@ class VEO3PromptGenerator:
             self.web_client = None
     
     async def generate_prompts(self, scenes: List[Dict[str, Any]], 
-                              characters_json: Dict[str, Any], project_name: Optional[str] = None) -> List[str]:
+                              characters_json: Dict[str, Any], project_name: Optional[str] = None, project_config: Optional[dict] = None) -> List[str]:
         characters_str = json.dumps(characters_json, ensure_ascii=False, indent=2)
         prompts = []
         
@@ -40,7 +40,7 @@ class VEO3PromptGenerator:
             logger.info(f"Đang tạo VEO3 prompt cho scene {i}/{len(scenes)}...")
             
             if self.use_browser and self.web_client is not None:
-                veo3_prompt = await self.web_client.generate(prompt)
+                veo3_prompt = await self.web_client.generate(prompt, project_config)
                 prompts.append(veo3_prompt.strip())
             else:
                 if not self.provider.is_available():

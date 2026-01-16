@@ -60,6 +60,7 @@ class ProjectManager:
             'ai_model': kwargs.get('ai_model', 'VEO3 ULTRA'),
             'dialogue_language': kwargs.get('dialogue_language', 'en-US'),
             'project_link': kwargs.get('project_link', ''),
+            'gemini_project_link': kwargs.get('gemini_project_link', ''),
             'chatgpt_training_link': kwargs.get('chatgpt_training_link', ''),
             'characters': {},
             'scenes': [],

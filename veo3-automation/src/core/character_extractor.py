@@ -19,10 +19,10 @@ class CharacterExtractor:
         else:
             self.web_client = None
     
-    async def extract_characters(self, content: str, project_name: Optional[str] = None) -> Dict[str, Any]:
+    async def extract_characters(self, content: str, project_name: Optional[str] = None, project_config: Optional[dict] = None) -> Dict[str, Any]:
         prompt = prompt_templates.get_content_to_character(content)
         if self.use_browser and self.web_client is not None:
-            response_text = await self.web_client.generate(prompt)
+            response_text = await self.web_client.generate(prompt, project_config)
         else:
             if not self.provider.is_available():
                 raise RuntimeError(f"AI provider {self.provider_name} is not available")

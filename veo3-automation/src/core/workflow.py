@@ -100,7 +100,7 @@ class Workflow:
                 },
             )
             
-            characters = await self.character_extractor.extract_characters(content["full_content"], self.project_name)
+            characters = await self.character_extractor.extract_characters(content["full_content"], self.project_name, project_config)
             self.logger.info(
                 "Đã trích xuất nhân vật",
                 {"num_characters": len(characters) if isinstance(characters, dict) else None},
@@ -113,7 +113,8 @@ class Workflow:
             scenes = await self.scene_generator.generate_scenes(
                 content["full_content"], 
                 characters,
-                self.project_name
+                self.project_name,
+                project_config
             )
             self.logger.info(
                 "Đã tạo scenes từ nội dung và nhân vật",
@@ -220,7 +221,7 @@ class Workflow:
         self.is_running = True
         try:
             user_script = project_config.get("script", "")
-            content = await self.content_generator.generate_content(video_analysis, user_script, self.project_name)
+            content = await self.content_generator.generate_content(video_analysis, user_script, self.project_name, project_config)
             self.logger.info("Đã tạo nội dung từ VIDEO_ANALYSIS")
             
             if "logs" in self.update_callbacks:
@@ -244,7 +245,7 @@ class Workflow:
         self.is_running = True
         try:
             full_content = content if isinstance(content, str) else content.get("full_content", "")
-            characters = await self.character_extractor.extract_characters(full_content, self.project_name)
+            characters = await self.character_extractor.extract_characters(full_content, self.project_name, project_config)
             self.logger.info("Đã trích xuất nhân vật")
             
             if "characters" in self.update_callbacks:
@@ -270,7 +271,7 @@ class Workflow:
         self.is_running = True
         try:
             full_content = content if isinstance(content, str) else content.get("full_content", "")
-            scenes = await self.scene_generator.generate_scenes(full_content, characters, self.project_name)
+            scenes = await self.scene_generator.generate_scenes(full_content, characters, self.project_name, project_config)
             self.logger.info("Đã tạo scenes từ nội dung và nhân vật")
             
             if "scenes" in self.update_callbacks:
@@ -295,7 +296,7 @@ class Workflow:
         
         self.is_running = True
         try:
-            veo3_prompts = await self.veo3_prompt_generator.generate_prompts(scenes, characters, self.project_name)
+            veo3_prompts = await self.veo3_prompt_generator.generate_prompts(scenes, characters, self.project_name, project_config)
             self.logger.info("Đã tạo VEO3 prompts từ scenes")
             
             if "prompts" in self.update_callbacks:

@@ -74,6 +74,15 @@ class ProjectPanel(ctk.CTkFrame):
         self.project_link_entry = ctk.CTkEntry(project_link_frame, placeholder_text="https://labs.google/fx/tools/flow/project/...")
         self.project_link_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
         
+        gemini_link_label = ctk.CTkLabel(self, text="Gemini Project Link:")
+        gemini_link_label.pack(pady=(10, 5))
+        
+        gemini_link_frame = ctk.CTkFrame(self)
+        gemini_link_frame.pack(fill="x", padx=10, pady=5)
+        
+        self.gemini_project_link_entry = ctk.CTkEntry(gemini_link_frame, placeholder_text="https://gemini.google.com/app/...")
+        self.gemini_project_link_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
         upload_video_btn = ctk.CTkButton(self, text="Upload Video", command=self._upload_video)
         upload_video_btn.pack(fill="x", padx=10, pady=5)
         
@@ -141,6 +150,20 @@ class ProjectPanel(ctk.CTkFrame):
         )
         veo_dropdown.pack(side="left", fill="x", expand=True, padx=5)
         
+        aspect_ratio_frame = ctk.CTkFrame(self)
+        aspect_ratio_frame.pack(fill="x", padx=10, pady=5)
+        
+        aspect_ratio_label = ctk.CTkLabel(aspect_ratio_frame, text="Aspect Ratio:")
+        aspect_ratio_label.pack(side="left", padx=5)
+        
+        self.aspect_ratio_var = ctk.StringVar(value="Khổ ngang (16:9)")
+        aspect_ratio_dropdown = ctk.CTkComboBox(
+            aspect_ratio_frame,
+            values=ASPECT_RATIOS,
+            variable=self.aspect_ratio_var
+        )
+        aspect_ratio_dropdown.pack(side="left", fill="x", expand=True, padx=5)
+        
         button_frame = ctk.CTkFrame(self)
         button_frame.pack(fill="x", padx=10, pady=20)
         
@@ -182,8 +205,11 @@ class ProjectPanel(ctk.CTkFrame):
         self.duration_entry.insert(0, str(project.get("duration", 120)))
         self.veo_profile_var.set(project.get("veo_profile", "VEO3 ULTRA"))
         self.ai_model_var.set(project.get("ai_model", "VEO3 ULTRA"))
+        self.aspect_ratio_var.set(project.get("aspect_ratio", "Khổ ngang (16:9)"))
         self.project_link_entry.delete(0, "end")
         self.project_link_entry.insert(0, project.get("project_link", ""))
+        self.gemini_project_link_entry.delete(0, "end")
+        self.gemini_project_link_entry.insert(0, project.get("gemini_project_link", ""))
     
     def _new_project(self):
         name = self.project_name_entry.get() or "New Project"
@@ -213,7 +239,9 @@ class ProjectPanel(ctk.CTkFrame):
             "duration": int(self.duration_entry.get() or 120),
             "veo_profile": self.veo_profile_var.get(),
             "ai_model": self.ai_model_var.get(),
-            "project_link": self.project_link_entry.get()
+            "aspect_ratio": self.aspect_ratio_var.get(),
+            "project_link": self.project_link_entry.get(),
+            "gemini_project_link": self.gemini_project_link_entry.get()
         }
         
         project_manager.update_project(self.current_project["file"], project_data)
@@ -291,6 +319,8 @@ class ProjectPanel(ctk.CTkFrame):
             "veo_profile": self.veo_profile_var.get(),
             "ai_model": self.ai_model_var.get(),
             "run_type": self.run_type_var.get(),
-            "project_link": self.project_link_entry.get()
+            "aspect_ratio": self.aspect_ratio_var.get(),
+            "project_link": self.project_link_entry.get(),
+            "gemini_project_link": self.gemini_project_link_entry.get()
         }
 

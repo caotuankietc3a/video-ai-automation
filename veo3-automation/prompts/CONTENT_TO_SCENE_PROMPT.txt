@@ -1,15 +1,31 @@
 ﻿CONTENT_TO_SCENE_PROMPT
-Bạn là một đạo diễn và biên kịch chuyên nghiệp. Nhiệm vụ của bạn là tạo ra danh sách scenes từ nội dung đã cho.
+Bạn là một đạo diễn, biên kịch và AI video timing director chuyên nghiệp.
+Nhiệm vụ của bạn là tạo danh sách scenes từ nội dung đã cho, đồng thời xác định logic cắt cảnh (scene transition timing) một cách điện ảnh.
 
 
 YÊU CẦU:
 1. Tạo đúng số lượng scenes theo yêu cầu (phù hợp với số lượng video)
-2. Mỗi scene phải có độ dài khoảng 8 giây (duration_sec: "8")
+2. Mỗi scene phải có độ dài khoảng 8 giây (duration_sec: "8"), nhưng thời điểm cắt cảnh phải dựa trên hành động, nhạc và cảm xúc, không cứng theo thời gian
 3. Sử dụng các nhân vật đã được định nghĩa trong characters.json
 4. Mỗi scene phải có đầy đủ thông tin: visual_style, background_lock, camera, foley_and_ambience, character_lock, dialogue, mood
-5. Đảm bảo tính liên tục giữa các scenes
-6. Output phải là JSON array hợp lệ
+5. Đảm bảo tính liên tục hành động – cảm xúc – không gian giữa các scenes
+6. Output phải là JSON array hợp lệ, có thể copy & dùng trực tiếp
 
+⏱️ QUY TẮC CẮT CẢNH THÔNG MINH (RẤT QUAN TRỌNG)
+❗ KHÔNG cắt scene theo thời gian cứng
+✅ Cắt scene theo ACTION COMPLETION + MUSIC + EMOTION
+Một scene CHỈ ĐƯỢC PHÉP KẾT THÚC khi:
+  main_action đã hoàn tất trọn vẹn
+  Camera không còn đang di chuyển chính
+  Âm nhạc đã rơi nhịp (beat resolved / phrase end)
+  Cảm xúc scene đã đạt đỉnh hoặc khép lại
+
+🔁 QUY TẮC KÉO DÀI SCENE (AUTO EXTEND)
+Cho phép scene kéo dài hơn 8s nếu:
+  Hành động chính chưa hoàn thành
+  Hiệu ứng thị giác đang hình thành (glow, water, rainbow, magic, particles)
+  Nhạc nền chưa resolve
+  Scene thuộc loại climax hoặc resolution
 
 CẤU TRÚC MỖI SCENE:
 {{
@@ -18,7 +34,6 @@ CẤU TRÚC MỖI SCENE:
 
 
   "visual_style": "Mô tả phong cách hình ảnh tổng thể của scene (anime 2D, 3D Pixar-like, cinematic, soft lighting, clean line art)",
-
 
   "background_lock": {{
     "BACKGROUND_ID": {{
@@ -75,7 +90,7 @@ CẤU TRÚC MỖI SCENE:
 
   "mood": {{
     "emotional_tone": "Cảm xúc chính của scene (cozy, calm, suspense, cheerful)",
-    "story_function": "Vai trò trong câu chuyện (setup, tension, reveal, resolution)"
+    "story_function": "Vai trò trong câu chuyện (setup, tension, reveal, progression, climax, resolution)"
   }},
 
 
@@ -128,12 +143,48 @@ CẤU TRÚC MỖI SCENE:
     }}
   ],
 
+  "transition_logic": {{
+    "cut_when": [
+      "main_action_completed",
+      "music_phrase_resolved"
+    ],
+    // Điều kiện BẮT BUỘC để được cắt scene:
+    // - main_action_completed: Hành động chính đã hoàn tất trọn vẹn
+    // - music_phrase_resolved: Nhạc nền đã kết thúc câu / nhịp
+
+
+    "min_hold_sec": 1.5,
+    // Thời gian giữ khung hình tối thiểu (giây)
+    // sau khi hành động và nhạc đã hoàn tất
+    // để người xem kịp cảm nhận hình ảnh
+
+
+    "allow_extend_if": [
+      "visual_effect_still_forming",
+      "music_not_resolved"
+    ],
+    // Điều kiện cho phép kéo dài scene:
+    // - visual_effect_still_forming: Hiệu ứng hình ảnh chưa hoàn chỉnh
+    // - music_not_resolved: Nhạc nền chưa kết câu
+
+
+    "recommended_exit": "hold_final_pose"
+    // Điểm cắt ưu tiên:
+    // - hold_final_pose: Giữ tư thế / biểu cảm đẹp nhất rồi mới cắt
+  }}
+
 
   "lip_sync_director_note": "Ghi chú cho AI về lip-sync (slow, clear mouth movement, minimal exaggeration)"
 }}
 
 
-
+🧠 QUY TẮC SUY NGHĨ KHI TẠO SCENE (BẮT BUỘC TUÂN THỦ)
+Khi tạo mỗi scene, AI phải tự hỏi ngầm:
+  Hành động chính đã hoàn tất chưa?
+  Người xem đã “đọc xong” khung hình chưa?
+  Nhạc đã tới điểm chuyển hợp lý chưa?
+  Scene này cần thở hay cần nhanh?
+👉 Chỉ cho phép chuyển scene khi ít nhất 3/4 câu trả lời là YES
 
 QUAN TRỌNG:
 - character_lock chỉ chứa các nhân vật xuất hiện trong scene đó (mỗi character phải chứa đặc điểm từ characters.json)

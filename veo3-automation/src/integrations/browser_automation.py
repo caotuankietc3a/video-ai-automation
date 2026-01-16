@@ -163,6 +163,35 @@ class BrowserAutomation:
                 return self.page.url
             else:
                 raise
+    
+    async def drag(self, selector: str, target_x: int, target_y: int):
+        if not self._is_page_valid():
+            await self.start()
+        if not self.page:
+            raise RuntimeError("Browser not started")
+        try:
+            element = await self.page.query_selector(selector)
+            if element:
+                box = await element.bounding_box()
+                if box:
+                    await self.page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+                    await self.page.mouse.down()
+                    await self.page.mouse.move(target_x, target_y)
+                    await self.page.mouse.up()
+        except Exception as e:
+            if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
+                logger.warning("Page context destroyed, restarting browser...")
+                await self.start()
+                element = await self.page.query_selector(selector)
+                if element:
+                    box = await element.bounding_box()
+                    if box:
+                        await self.page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+                        await self.page.mouse.down()
+                        await self.page.mouse.move(target_x, target_y)
+                        await self.page.mouse.up()
+            else:
+                raise
 
     async def set_input_files(self, selector: str, file_paths: List[str]) -> None:
         if not self._is_page_valid():
