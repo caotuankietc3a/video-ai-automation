@@ -63,6 +63,51 @@ class VEO3Flow:
             print(f"Warning: Không thể click Scenebuilder: {e}, tiếp tục bình thường")
             return False
     
+    async def _configure_outputs_per_prompt(self, project_config: Dict[str, Any]):
+        outputs_per_prompt = project_config.get("outputs_per_prompt", 2)
+        
+        try:
+            outputs_button_selector = (
+                'button[type="button"][role="combobox"][aria-controls*="radix"]:has(span:has-text("Outputs per prompt")), '
+                'button[role="combobox"][aria-controls*="radix"]:has-text("Outputs per prompt"), '
+                'button[role="combobox"]:has(span:has-text("Outputs per prompt")), '
+                'button[type="button"][role="combobox"]:has(div:has-text("Outputs per prompt"))'
+            )
+            await browser_automation.wait_for_selector(outputs_button_selector, timeout=10000)
+            await browser_automation.click(outputs_button_selector)
+            await asyncio.sleep(1.5)
+            
+            option_value = str(outputs_per_prompt)
+            option_selector = (
+                f'div[role="option"][aria-labelledby*="radix"]:has(span:has-text("{option_value}")), '
+                f'div[role="option"]:has-text("{option_value}"), '
+                f'div[role="option"][data-state]:has(span:has-text("{option_value}"))'
+            )
+            await browser_automation.wait_for_selector(option_selector, timeout=5000)
+            await browser_automation.click(option_selector)
+            await asyncio.sleep(1.5)
+            
+            try:
+                await browser_automation.evaluate("""
+                    () => {
+                        const event = new KeyboardEvent('keydown', { 
+                            key: 'Escape', 
+                            code: 'Escape', 
+                            keyCode: 27, 
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        document.activeElement?.dispatchEvent(event);
+                        document.dispatchEvent(event);
+                        return true;
+                    }
+                """)
+                await asyncio.sleep(0.5)
+            except:
+                pass
+        except Exception as e:
+            print(f"Warning: Không thể set outputs per prompt: {e}, tiếp tục với settings mặc định")
+    
     async def _configure_aspect_ratio(self, project_config: Dict[str, Any]):
         aspect_ratio = project_config.get("aspect_ratio", "Khổ ngang (16:9)")
         is_portrait = "dọc" in aspect_ratio or "Portrait" in aspect_ratio or "9:16" in aspect_ratio
@@ -195,6 +240,95 @@ class VEO3Flow:
             }
         """)
         return video_url
+    
+    async def _download_videos_from_blob(self, project_config: Dict[str, Any], scene_id: str) -> Optional[str]:
+        try:
+            project_name = project_config.get("name", "default")
+            outputs_per_prompt = project_config.get("outputs_per_prompt", 2)
+            
+            print(f"Đang tìm và download {outputs_per_prompt} video(s) từ blob URL...")
+            await asyncio.sleep(2)
+            
+            video_data = await browser_automation.evaluate("""
+                () => {
+                    const videos = Array.from(document.querySelectorAll('video[src^="blob:"]'));
+                    const videoData = [];
+                    
+                    for (let i = 0; i < videos.length; i++) {
+                        const video = videos[i];
+                        const blobUrl = video.src || video.getAttribute('src');
+                        if (blobUrl && blobUrl.startsWith('blob:')) {
+                            videoData.push({
+                                index: i,
+                                blobUrl: blobUrl
+                            });
+                        }
+                    }
+                    
+                    return videoData.slice(0, arguments[0]);
+                }
+            """, outputs_per_prompt)
+            
+            if not video_data or len(video_data) == 0:
+                print("⚠ Không tìm thấy video với blob URL")
+                return None
+            
+            from ..config.constants import OUTPUTS_DIR
+            import os
+            project_output_dir = os.path.join(OUTPUTS_DIR, project_name)
+            os.makedirs(project_output_dir, exist_ok=True)
+            
+            downloaded_paths = []
+            
+            for i, video_info in enumerate(video_data):
+                try:
+                    blob_url = video_info.get("blobUrl")
+                    if not blob_url:
+                        continue
+                    
+                    print(f"Đang download video {i+1}/{len(video_data)} từ blob URL...")
+                    
+                    video_bytes = await browser_automation.evaluate("""
+                        async (blobUrl) => {
+                            try {
+                                const response = await fetch(blobUrl);
+                                const blob = await response.blob();
+                                const arrayBuffer = await blob.arrayBuffer();
+                                const uint8Array = new Uint8Array(arrayBuffer);
+                                return Array.from(uint8Array);
+                            } catch (e) {
+                                console.error('Error fetching blob:', e);
+                                return null;
+                            }
+                        }
+                    """, blob_url)
+                    
+                    if video_bytes:
+                        filename = f"{scene_id}_{i+1}.mp4" if len(video_data) > 1 else f"{scene_id}.mp4"
+                        file_path = os.path.join(project_output_dir, filename)
+                        
+                        with open(file_path, 'wb') as f:
+                            f.write(bytes(video_bytes))
+                        
+                        downloaded_paths.append(file_path)
+                        print(f"✓ Đã download video {i+1}/{len(video_data)}: {file_path}")
+                    else:
+                        print(f"⚠ Không thể download video {i+1}")
+                    
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    print(f"⚠ Lỗi khi download video {i+1}: {e}")
+            
+            if downloaded_paths:
+                return downloaded_paths[0] if len(downloaded_paths) == 1 else downloaded_paths[0]
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"Warning: Không thể download video từ blob URL: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     async def _scroll_to_last_scene(self):
         try:
@@ -348,6 +482,10 @@ class VEO3Flow:
                 await asyncio.sleep(1)
                 print("[Step 2/4] ✓ Đã click video hiện tại")
             
+            print("[Step 4.5/6] Cấu hình số lượng outputs per prompt..." if is_first_video else "[Step 2.5/4] Cấu hình số lượng outputs per prompt...")
+            await self._configure_outputs_per_prompt(project_config)
+            print("[Step 4.5/6] ✓ Đã cấu hình outputs per prompt" if is_first_video else "[Step 2.5/4] ✓ Đã cấu hình outputs per prompt")
+            
             print("[Step 5/6] Điền prompt và tạo video..." if is_first_video else "[Step 3/4] Điền prompt và tạo video...")
             await self._fill_prompt_and_generate(prompt)
             print("[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video" if is_first_video else "[Step 3/4] ✓ Đã điền prompt và bắt đầu tạo video")
@@ -366,8 +504,19 @@ class VEO3Flow:
             else:
                 print("⚠ Không thể trích xuất video URL")
             
+            video_path = None
+            if is_complete and video_url and video_url.startswith("blob:"):
+                scene_id = f"scene_{project_config.get('current_scene_index', 0)}"
+                print("Đang download video từ blob URL...")
+                video_path = await self._download_videos_from_blob(project_config, scene_id)
+                if video_path:
+                    print(f"✓ Đã download video: {video_path}")
+                else:
+                    print("⚠ Không thể download video từ blob URL")
+            
             return {
                 "video_url": video_url,
+                "video_path": video_path,
                 "success": is_complete,
                 "project_link": project_config.get("project_link", "")
             }
@@ -404,11 +553,13 @@ class VEO3Flow:
     
     async def retry_video(self, prompt: str, project_config: Dict[str, Any], use_browser: bool = True) -> Dict[str, Any]:
         scene_id = f"scene_retry"
+        project_config["current_scene_index"] = "retry"
         try:
             if use_browser:
                 video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=False)
                 if isinstance(video_result, dict):
                     video_url = video_result.get("video_url")
+                    video_path = video_result.get("video_path")
                     success = video_result.get("success", False)
                     project_link = video_result.get("project_link", "")
                     
@@ -424,7 +575,7 @@ class VEO3Flow:
                         "prompt": prompt,
                         "status": "SUCCESSFUL" if success and video_url else "FAILED",
                         "video_url": video_url,
-                        "video_path": None,
+                        "video_path": video_path,
                         "project_link": project_link
                     }
                 else:
@@ -460,6 +611,7 @@ class VEO3Flow:
         for i, prompt in enumerate(prompts):
             scene_id = f"scene_{i+1}"
             is_first_video = (i == 0)
+            project_config["current_scene_index"] = i + 1
             
             try:
                 if use_browser:
@@ -476,12 +628,13 @@ class VEO3Flow:
                             if project_file:
                                 project_manager.update_project(project_file, {"project_link": project_link})
                         
+                        video_path = video_result.get("video_path")
                         results.append({
                             "scene_id": scene_id,
                             "prompt": prompt,
                             "status": "SUCCESSFUL" if success and video_url else "FAILED",
                             "video_url": video_url,
-                            "video_path": None,
+                            "video_path": video_path,
                             "project_link": project_link
                         })
                     else:

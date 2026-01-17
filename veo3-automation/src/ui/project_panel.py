@@ -173,7 +173,7 @@ class ProjectPanel(ctk.CTkFrame):
         aspect_ratio_label = ctk.CTkLabel(aspect_ratio_frame, text="Aspect Ratio:")
         aspect_ratio_label.pack(side="left", padx=5)
         
-        self.aspect_ratio_var = ctk.StringVar(value="Khổ ngang (16:9)")
+        self.aspect_ratio_var = ctk.StringVar(value="Khổ dọc (9:16)")
         aspect_ratio_dropdown = ctk.CTkComboBox(
             aspect_ratio_frame,
             values=ASPECT_RATIOS,
@@ -181,17 +181,35 @@ class ProjectPanel(ctk.CTkFrame):
         )
         aspect_ratio_dropdown.pack(side="left", fill="x", expand=True, padx=5)
         
+        outputs_frame = ctk.CTkFrame(self.scrollable_frame)
+        outputs_frame.pack(fill="x", pady=5)
+        
+        outputs_label = ctk.CTkLabel(outputs_frame, text="Số lượng video/prompt:")
+        outputs_label.pack(side="left", padx=5)
+        
+        self.outputs_per_prompt_var = ctk.StringVar(value="1")
+        outputs_dropdown = ctk.CTkComboBox(
+            outputs_frame,
+            values=["1", "2", "3", "4"],
+            variable=self.outputs_per_prompt_var
+        )
+        outputs_dropdown.pack(side="left", fill="x", expand=True, padx=5)
+        
         button_frame = ctk.CTkFrame(self.scrollable_frame)
         button_frame.pack(fill="x", pady=20)
         
         delete_btn = ctk.CTkButton(button_frame, text="Xóa", fg_color="red", command=self._delete_project)
-        delete_btn.pack(side="left", padx=5, fill="x", expand=True)
+        delete_btn.grid(row=0, column=0, padx=5, sticky="ew")
         
         save_btn = ctk.CTkButton(button_frame, text="Lưu", fg_color="green", command=self._save_project)
-        save_btn.pack(side="left", padx=5, fill="x", expand=True)
+        save_btn.grid(row=0, column=1, padx=5, sticky="ew")
         
         all_btn = ctk.CTkButton(button_frame, text="🚀 Chạy tất cả", command=self._on_all_click, fg_color="blue", hover_color="darkblue")
-        all_btn.pack(side="left", padx=5, fill="x", expand=True)
+        all_btn.grid(row=0, column=2, padx=5, sticky="ew")
+        
+        button_frame.grid_columnconfigure(0, weight=1)
+        button_frame.grid_columnconfigure(1, weight=1)
+        button_frame.grid_columnconfigure(2, weight=1)
     
     def _on_name_change(self, event=None):
         if self.on_project_change:
@@ -216,7 +234,8 @@ class ProjectPanel(ctk.CTkFrame):
         self.duration_entry.insert(0, str(project.get("duration", 120)))
         self.veo_profile_var.set(project.get("veo_profile", "VEO3 ULTRA"))
         self.ai_model_var.set(project.get("ai_model", "VEO3 ULTRA"))
-        self.aspect_ratio_var.set(project.get("aspect_ratio", "Khổ ngang (16:9)"))
+        self.aspect_ratio_var.set(project.get("aspect_ratio", "Khổ dọc (9:16)"))
+        self.outputs_per_prompt_var.set(str(project.get("outputs_per_prompt", 1)))
         self.project_link_entry.delete(0, "end")
         self.project_link_entry.insert(0, project.get("project_link", ""))
         self.gemini_project_link_entry.delete(0, "end")
@@ -251,6 +270,7 @@ class ProjectPanel(ctk.CTkFrame):
             "veo_profile": self.veo_profile_var.get(),
             "ai_model": self.ai_model_var.get(),
             "aspect_ratio": self.aspect_ratio_var.get(),
+            "outputs_per_prompt": int(self.outputs_per_prompt_var.get() or 2),
             "project_link": self.project_link_entry.get(),
             "gemini_project_link": self.gemini_project_link_entry.get()
         }
@@ -332,6 +352,7 @@ class ProjectPanel(ctk.CTkFrame):
             "ai_model": self.ai_model_var.get(),
             "run_type": self.run_type_var.get(),
             "aspect_ratio": self.aspect_ratio_var.get(),
+            "outputs_per_prompt": int(self.outputs_per_prompt_var.get() or 2),
             "project_link": self.project_link_entry.get(),
             "gemini_project_link": self.gemini_project_link_entry.get()
         }
