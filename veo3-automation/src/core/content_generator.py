@@ -14,17 +14,17 @@ class ContentGenerator:
         self.use_browser: bool = bool(
             config_manager.get("content_generation.use_browser", True),
         )
-        self.web_client: Optional[WebContentGenerator]
-        if self.use_browser:
-            self.web_client = WebContentGenerator()
-        else:
-            self.web_client = None
     
     async def generate_content(self, video_analysis: str, user_script: str = "", project_name: Optional[str] = None, project_config: Optional[dict] = None) -> dict:
         prompt = prompt_templates.get_video_to_content(video_analysis, user_script)
         
-        if self.use_browser and self.web_client is not None:
-            content_text = await self.web_client.generate(prompt, project_config)
+        gemini_link = None
+        if project_config:
+            gemini_link = project_config.get("gemini_project_link") or project_config.get("gemini_video_analysis_link")
+        
+        if self.use_browser:
+            web_client = WebContentGenerator(gemini_project_link=gemini_link)
+            content_text = await web_client.generate(prompt, project_config)
         else:
             if not self.provider.is_available():
                 raise RuntimeError(f"AI provider {self.provider_name} is not available")

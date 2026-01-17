@@ -15,11 +15,6 @@ class VEO3PromptGenerator:
         self.use_browser: bool = bool(
             config_manager.get("veo3_prompt_generation.use_browser", True),
         )
-        self.web_client: Optional[WebContentGenerator]
-        if self.use_browser:
-            self.web_client = WebContentGenerator()
-        else:
-            self.web_client = None
     
     async def generate_prompts(self, scenes: List[Dict[str, Any]], 
                               characters_json: Dict[str, Any], project_name: Optional[str] = None, project_config: Optional[dict] = None) -> List[str]:
@@ -29,6 +24,10 @@ class VEO3PromptGenerator:
         
         project_name = project_name or self.project_name
         from ..utils.response_saver import save_gemini_response
+        
+        gemini_link = None
+        if project_config:
+            gemini_link = project_config.get("gemini_project_link") or project_config.get("gemini_video_analysis_link")
         
         previous_scene = None
         for i, scene in enumerate(scenes, 1):
@@ -43,8 +42,9 @@ class VEO3PromptGenerator:
             
             logger.info(f"Đang tạo VEO3 prompt cho scene {i}/{len(scenes)}...")
             
-            if self.use_browser and self.web_client is not None:
-                veo3_prompt = await self.web_client.generate(prompt, project_config)
+            if self.use_browser:
+                web_client = WebContentGenerator(gemini_project_link=gemini_link)
+                veo3_prompt = await web_client.generate(prompt, project_config)
             else:
                 if not self.provider.is_available():
                     raise RuntimeError(f"AI provider {self.provider_name} is not available")

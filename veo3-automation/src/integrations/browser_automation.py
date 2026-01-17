@@ -50,8 +50,8 @@ class BrowserAutomation:
         if not self.page:
             raise RuntimeError("Browser not started")
         try:
-            await self.page.goto(url, timeout=self.timeout)
-            await self.page.wait_for_load_state("load", timeout=self.timeout)
+            await self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
+            await self.page.wait_for_load_state("domcontentloaded", timeout=self.timeout)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 logger.warning("Page context destroyed during navigation, restarting browser...")
@@ -134,6 +134,53 @@ class BrowserAutomation:
                 return await self.page.text_content(selector) or ""
             else:
                 raise
+    
+    async def query_all(self, selector: str) -> List:
+        if not self._is_page_valid():
+            await self.start()
+        if not self.page:
+            raise RuntimeError("Browser not started")
+        try:
+            return await self.page.query_selector_all(selector)
+        except Exception as e:
+            if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
+                logger.warning("Page context destroyed, restarting browser...")
+                await self.start()
+                return await self.page.query_selector_all(selector)
+            else:
+                raise
+    
+    async def get_text_from_last_element(self, selector: str) -> str:
+        elements = await self.query_all(selector)
+        if not elements:
+            return ""
+        last_element = elements[-1]
+        try:
+            return await last_element.text_content() or ""
+        except Exception:
+            return ""
+    
+    async def wait_for_thinking_to_finish(self, timeout: Optional[int] = None) -> None:
+        thinking_selector = 'bard-avatar.thinking, .avatar.thinking, .bard-avatar.thinking'
+        max_wait = timeout or 120000
+        waited = 0
+        check_interval = 1000
+        
+        while waited < max_wait:
+            try:
+                thinking_elements = await self.query_all(thinking_selector)
+                if not thinking_elements:
+                    logger.debug("Không còn thinking animation")
+                    await asyncio.sleep(1)
+                    return
+                await asyncio.sleep(check_interval / 1000)
+                waited += check_interval
+            except Exception as e:
+                logger.warning(f"Lỗi khi chờ thinking finish: {e}")
+                await asyncio.sleep(1)
+                waited += 1000
+        
+        logger.warning("Timeout khi chờ thinking animation kết thúc, tiếp tục...")
     
     async def screenshot(self, path: str):
         if not self.page:

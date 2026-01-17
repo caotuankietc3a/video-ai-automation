@@ -26,7 +26,8 @@ class RunTab(ctk.CTkFrame):
             on_start=self._start_workflow, 
             on_stop=self._stop_workflow,
             on_analyze_video=self._analyze_video,
-            on_generate_content=lambda: self._run_step("generate_content")
+            on_generate_content=lambda: self._run_step("generate_content"),
+            on_run_all=self._run_all_steps
         )
         self.result_panel = ResultPanel(self, on_run_step=self._run_step, on_retry_video=self._retry_video)
     
@@ -175,8 +176,15 @@ class RunTab(ctk.CTkFrame):
             asyncio.set_event_loop(loop)
             try:
                 messagebox.showinfo("Thông báo", "Đang phân tích video...")
-                video_analysis = loop.run_until_complete(video_analyzer.analyze_videos(self.video_paths))
+                video_analysis, gemini_link = loop.run_until_complete(video_analyzer.analyze_videos(self.video_paths))
                 self.manual_video_analysis = video_analysis
+                
+                if gemini_link:
+                    project_config = self.project_panel.get_project_config()
+                    project = project_manager.load_project(project_config.get("file", ""))
+                    if project:
+                        project["gemini_video_analysis_link"] = gemini_link
+                        project_manager.save_project(project)
                 self.project_panel.update_video_analysis(video_analysis)
                 messagebox.showinfo("Thành công", "Đã phân tích video xong!")
             except Exception as e:
@@ -407,5 +415,112 @@ class RunTab(ctk.CTkFrame):
                 loop.close()
         
         thread = threading.Thread(target=retry_async, daemon=True)
+        thread.start()
+    
+    def _run_all_steps(self):
+        if self.workflow and self.workflow.is_running:
+            messagebox.showwarning("Cảnh báo", "Workflow đang chạy!")
+            return
+        
+        project_config = self.project_panel.get_project_config()
+        project_file = project_config.get("file", "")
+        project_data = data_loader.load_project_data(project_file) if project_file else {}
+        
+        content = project_data.get("content") or self.project_panel.script_textbox.get("1.0", "end-1c")
+        if not content or not content.strip():
+            messagebox.showwarning("Cảnh báo", "Vui lòng có nội dung (content) trước khi chạy tất cả các bước!")
+            return
+        
+        project_name = project_config.get("name", "default")
+        
+        if not self.workflow or self.workflow.project_name != project_name:
+            self.workflow = Workflow(project_name)
+            self.logger = Logger(project_name)
+        
+        def progress_callback(message: str, progress: float):
+            self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+        
+        self.workflow.set_progress_callback(progress_callback)
+        
+        def update_ui_characters(characters):
+            self.after(0, lambda: self.result_panel.update_characters(characters))
+        
+        def update_ui_scenes(scenes):
+            self.after(0, lambda: self.result_panel.update_scenes(scenes))
+        
+        def update_ui_prompts(prompts):
+            self.after(0, lambda: self.result_panel.update_prompts(prompts))
+        
+        def update_ui_videos(videos):
+            self.after(0, lambda: self.result_panel.update_videos(videos))
+        
+        def update_ui_logs():
+            self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+        
+        self.workflow.set_update_callbacks(
+            on_characters=update_ui_characters,
+            on_scenes=update_ui_scenes,
+            on_prompts=update_ui_prompts,
+            on_videos=update_ui_videos,
+            on_logs=update_ui_logs
+        )
+        
+        self.after(0, lambda: self.project_panel.set_workflow_running(True))
+        
+        def run_all_async():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                project_file = project_config.get("file", "")
+                project_data = data_loader.load_project_data(project_file) if project_file else {}
+                
+                content = project_data.get("content") or self.project_panel.script_textbox.get("1.0", "end-1c")
+                
+                characters = loop.run_until_complete(
+                    self.workflow.run_step_extract_characters(content, project_config)
+                )
+                gemini_link = project_config.get("gemini_project_link", "")
+                flow_link = project_config.get("project_link", "")
+                self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
+                self.after(0, lambda: self.result_panel.update_characters(characters))
+                self.after(0, lambda: self._on_project_change())
+                
+                scenes = loop.run_until_complete(
+                    self.workflow.run_step_generate_scenes(content, characters, project_config)
+                )
+                gemini_link = project_config.get("gemini_project_link", "")
+                flow_link = project_config.get("project_link", "")
+                self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
+                self.after(0, lambda: self.result_panel.update_scenes(scenes))
+                self.after(0, lambda: self._on_project_change())
+                
+                prompts = loop.run_until_complete(
+                    self.workflow.run_step_generate_prompts(scenes, characters, project_config)
+                )
+                gemini_link = project_config.get("gemini_project_link", "")
+                flow_link = project_config.get("project_link", "")
+                self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
+                self.after(0, lambda: self.result_panel.update_prompts(prompts))
+                self.after(0, lambda: self._on_project_change())
+                
+                videos = loop.run_until_complete(
+                    self.workflow.run_step_generate_videos(prompts, project_config)
+                )
+                gemini_link = project_config.get("gemini_project_link", "")
+                flow_link = project_config.get("project_link", "")
+                self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
+                self.after(0, lambda: self.result_panel.update_videos(videos))
+                self.after(0, lambda: self._on_project_change())
+                
+                self.after(0, lambda: messagebox.showinfo("Thành công", "Đã hoàn thành tất cả các bước!"))
+                
+            except Exception as e:
+                error_msg = str(e)
+                self.after(0, lambda msg=error_msg: messagebox.showerror("Lỗi", f"Chạy tất cả các bước thất bại: {msg}"))
+            finally:
+                self.after(0, lambda: self.project_panel.set_workflow_running(False))
+                loop.close()
+        
+        thread = threading.Thread(target=run_all_async, daemon=True)
         thread.start()
 

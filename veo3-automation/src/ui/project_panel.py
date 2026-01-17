@@ -6,13 +6,15 @@ from ..config.constants import VIDEO_STYLES, VEO_PROFILES, ASPECT_RATIOS
 class ProjectPanel(ctk.CTkFrame):
     def __init__(self, parent, on_project_change: Optional[Callable] = None, 
                  on_start: Optional[Callable] = None, on_stop: Optional[Callable] = None,
-                 on_analyze_video: Optional[Callable] = None, on_generate_content: Optional[Callable] = None):
+                 on_analyze_video: Optional[Callable] = None, on_generate_content: Optional[Callable] = None,
+                 on_run_all: Optional[Callable] = None):
         super().__init__(parent)
         self.on_project_change = on_project_change
         self.on_start = on_start
         self.on_stop = on_stop
         self.on_analyze_video = on_analyze_video
         self.on_generate_content = on_generate_content
+        self.on_run_all = on_run_all
         self.current_project = None
         self._setup_ui()
     
@@ -188,7 +190,7 @@ class ProjectPanel(ctk.CTkFrame):
         save_btn = ctk.CTkButton(button_frame, text="Lưu", fg_color="green", command=self._save_project)
         save_btn.pack(side="left", padx=5, fill="x", expand=True)
         
-        all_btn = ctk.CTkButton(button_frame, text="Tất cả", command=self._on_all_click)
+        all_btn = ctk.CTkButton(button_frame, text="🚀 Chạy tất cả", command=self._on_all_click, fg_color="blue", hover_color="darkblue")
         all_btn.pack(side="left", padx=5, fill="x", expand=True)
     
     def _on_name_change(self, event=None):
@@ -269,7 +271,8 @@ class ProjectPanel(ctk.CTkFrame):
         self.project_file_dropdown.configure(values=files)
     
     def _on_all_click(self):
-        pass
+        if self.on_run_all:
+            self.on_run_all()
     
     def _on_stop_click(self):
         if self.on_stop:

@@ -82,11 +82,18 @@ class Workflow:
                     "Không có sẵn VIDEO_ANALYSIS, bắt đầu phân tích video tự động",
                     {"video_paths": video_paths},
                 )
-                video_analysis = await self.video_analyzer.analyze_videos(video_paths, self.project_name)
+                video_analysis, gemini_link = await self.video_analyzer.analyze_videos(video_paths, self.project_name)
                 self.logger.info(
                     "Hoàn thành phân tích video",
-                    {"analysis_length": len(video_analysis)},
+                    {"analysis_length": len(video_analysis), "gemini_link": gemini_link},
                 )
+                
+                if gemini_link:
+                    project = project_manager.load_project(project_config.get("file", ""))
+                    if project:
+                        project["gemini_video_analysis_link"] = gemini_link
+                        project_manager.save_project(project)
+                        self.logger.info(f"Đã lưu Gemini link vào project: {gemini_link}")
             
             user_script = project_config.get("script", "")
             content = await self.content_generator.generate_content(video_analysis, user_script, self.project_name)
@@ -204,8 +211,15 @@ class Workflow:
                 video_analysis = video_analysis_override
             else:
                 self.logger.info("Bắt đầu phân tích video tự động")
-                video_analysis = await self.video_analyzer.analyze_videos(video_paths, self.project_name)
+                video_analysis, gemini_link = await self.video_analyzer.analyze_videos(video_paths, self.project_name)
                 self.logger.info("Hoàn thành phân tích video")
+                
+                if gemini_link:
+                    project = project_manager.load_project(project_config.get("file", ""))
+                    if project:
+                        project["gemini_video_analysis_link"] = gemini_link
+                        project_manager.save_project(project)
+                        self.logger.info(f"Đã lưu Gemini link vào project: {gemini_link}")
             
             if "logs" in self.update_callbacks:
                 self.update_callbacks["logs"]()

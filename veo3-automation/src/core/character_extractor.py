@@ -13,16 +13,17 @@ class CharacterExtractor:
         self.use_browser: bool = bool(
             config_manager.get("character_extraction.use_browser", True),
         )
-        self.web_client: Optional[WebContentGenerator]
-        if self.use_browser:
-            self.web_client = WebContentGenerator()
-        else:
-            self.web_client = None
     
     async def extract_characters(self, content: str, project_name: Optional[str] = None, project_config: Optional[dict] = None) -> Dict[str, Any]:
         prompt = prompt_templates.get_content_to_character(content)
-        if self.use_browser and self.web_client is not None:
-            response_text = await self.web_client.generate(prompt, project_config)
+        
+        gemini_link = None
+        if project_config:
+            gemini_link = project_config.get("gemini_project_link") or project_config.get("gemini_video_analysis_link")
+        
+        if self.use_browser:
+            web_client = WebContentGenerator(gemini_project_link=gemini_link)
+            response_text = await web_client.generate(prompt, project_config)
         else:
             if not self.provider.is_available():
                 raise RuntimeError(f"AI provider {self.provider_name} is not available")

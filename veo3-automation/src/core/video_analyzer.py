@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from ..integrations import get_ai_provider
 from ..data.video_manager import video_manager
@@ -39,7 +39,7 @@ class VideoAnalyzer:
         analysis = await self.provider.generate_with_images(prompt, all_frames)
         return analysis
 
-    async def _analyze_with_browser(self, video_paths: List[str]) -> str:
+    async def _analyze_with_browser(self, video_paths: List[str]) -> Tuple[str, str]:
         logger.info("Bắt đầu phân tích video qua Gemini Web (browser)...")
         video_path = video_paths[0]
         logger.info(f"Video đầu vào: {video_path}")
@@ -91,21 +91,29 @@ class VideoAnalyzer:
         if not analysis:
             raise RuntimeError("Không lấy được kết quả phân tích video từ web UI")
         logger.info(f"Đã lấy được kết quả phân tích video, độ dài: {len(analysis)} ký tự")
-        return analysis.strip()
+        
+        gemini_link = await browser_automation.get_current_url()
+        logger.info(f"Lưu Gemini link: {gemini_link}")
+        
+        await browser_automation.stop()
+        logger.info("Đã đóng browser sau khi phân tích video")
+        
+        return analysis.strip(), gemini_link
     
-    async def analyze_videos(self, video_paths: List[str], project_name: Optional[str] = None) -> str:
+    async def analyze_videos(self, video_paths: List[str], project_name: Optional[str] = None) -> Tuple[str, Optional[str]]:
         if not video_paths:
             raise ValueError("No video paths provided")
         
         project_name = project_name or self.project_name
+        gemini_link = None
 
         if self.use_browser:
-            analysis = await self._analyze_with_browser(video_paths)
+            analysis, gemini_link = await self._analyze_with_browser(video_paths)
         else:
             analysis = await self._analyze_with_api(video_paths)
         
         from ..utils.response_saver import save_gemini_response
         save_gemini_response(project_name, "video_analysis", analysis)
         
-        return analysis
+        return analysis, gemini_link
 

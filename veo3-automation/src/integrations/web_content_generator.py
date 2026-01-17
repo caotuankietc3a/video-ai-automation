@@ -73,26 +73,52 @@ class WebContentGenerator:
             logger.error(f"Không thể click button send: {e}")
             raise RuntimeError("Không thể gửi message, không tìm thấy button send")
 
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(1)
+        
+        logger.info("Chờ avatar thinking animation kết thúc...")
+        await browser_automation.wait_for_thinking_to_finish(timeout=120000)
+        logger.debug("Thinking animation đã kết thúc")
+        
         response_selector = (
             '[data-message-content], article, div.markdown, .response'
         )
-        logger.info("Chờ response từ Gemini (timeout: 120s)")
+        logger.info("Chờ response từ Gemini xuất hiện (timeout: 120s)")
         await browser_automation.wait_for_selector(
             response_selector,
             timeout=120000,
         )
         logger.debug("Response container đã xuất hiện")
+        
+        await asyncio.sleep(2)
 
-        logger.info("Chờ response hoàn tất (timeout: 60s)")
-        await browser_automation.wait_for_selector(
-            '.response-container-footer',
-            timeout=60000,
-        )
+        logger.info("Chờ response hoàn tất bằng cách kiểm tra footer...")
+        footer_selector = '.response-container-footer'
+        max_wait = 60000
+        waited = 0
+        check_interval = 1000
+        
+        while waited < max_wait:
+            try:
+                footer_elements = await browser_automation.query_all(footer_selector)
+                if len(footer_elements) >= 2:
+                    logger.debug(f"Tìm thấy {len(footer_elements)} footer elements, response cuối cùng đã hoàn tất")
+                    break
+                elif len(footer_elements) == 1:
+                    await asyncio.sleep(check_interval / 1000)
+                    waited += check_interval
+                    continue
+                else:
+                    await asyncio.sleep(check_interval / 1000)
+                    waited += check_interval
+            except Exception as e:
+                logger.warning(f"Lỗi khi chờ footer: {e}")
+                await asyncio.sleep(1)
+                waited += 1000
+        
         logger.debug("Response đã hoàn tất")
 
-        logger.info("Lấy nội dung response từ web UI")
-        text = await browser_automation.get_text(response_selector)
+        logger.info("Lấy nội dung response cuối cùng từ web UI")
+        text = await browser_automation.get_text_from_last_element(response_selector)
         if not text:
             logger.error("Không lấy được nội dung từ web UI")
             raise RuntimeError("Không lấy được nội dung từ web UI")
@@ -115,6 +141,12 @@ class WebContentGenerator:
                             logger.info(f"Đã lưu gemini_project_link: {gemini_link}")
             except Exception as e:
                 logger.warning(f"Không thể lưu gemini_project_link: {e}")
+        
+        logger.info("Đóng browser sau khi generate xong")
+        try:
+            await browser_automation.stop()
+        except Exception as e:
+            logger.warning(f"Lỗi khi đóng browser: {e}")
         
         logger.info("Hoàn thành generate content")
         return text.strip()
