@@ -187,18 +187,18 @@ class BrowserAutomation:
             raise RuntimeError("Browser not started")
         await self.page.screenshot(path=path)
     
-    async def evaluate(self, script: str):
+    async def evaluate(self, script: str, *args):
         if not self._is_page_valid():
             await self.start()
         if not self.page:
             raise RuntimeError("Browser not started")
         try:
-            return await self.page.evaluate(script)
+            return await self.page.evaluate(script, *args)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 logger.warning("Page context destroyed, restarting browser...")
                 await self.start()
-                return await self.page.evaluate(script)
+                return await self.page.evaluate(script, *args)
             else:
                 raise
     

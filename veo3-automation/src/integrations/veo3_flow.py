@@ -67,6 +67,15 @@ class VEO3Flow:
         outputs_per_prompt = project_config.get("outputs_per_prompt", 2)
         
         try:
+            settings_button_selector = (
+                'button[aria-haspopup="dialog"][aria-controls*="radix"]:has(i.material-icons-outlined:has-text("tune")), '
+                'button[aria-label*="Settings"][aria-haspopup="dialog"], '
+                'button:has(i.material-icons-outlined):has-text("Settings")'
+            )
+            await browser_automation.wait_for_selector(settings_button_selector, timeout=5000)
+            await browser_automation.click(settings_button_selector)
+            await asyncio.sleep(1.5)
+
             outputs_button_selector = (
                 'button[type="button"][role="combobox"][aria-controls*="radix"]:has(span:has-text("Outputs per prompt")), '
                 'button[role="combobox"][aria-controls*="radix"]:has-text("Outputs per prompt"), '
@@ -250,7 +259,7 @@ class VEO3Flow:
             await asyncio.sleep(2)
             
             video_data = await browser_automation.evaluate("""
-                () => {
+                (maxCount) => {
                     const videos = Array.from(document.querySelectorAll('video[src^="blob:"]'));
                     const videoData = [];
                     
@@ -265,7 +274,7 @@ class VEO3Flow:
                         }
                     }
                     
-                    return videoData.slice(0, arguments[0]);
+                    return videoData.slice(0, maxCount);
                 }
             """, outputs_per_prompt)
             
@@ -485,7 +494,7 @@ class VEO3Flow:
             print("[Step 4.5/6] Cấu hình số lượng outputs per prompt..." if is_first_video else "[Step 2.5/4] Cấu hình số lượng outputs per prompt...")
             await self._configure_outputs_per_prompt(project_config)
             print("[Step 4.5/6] ✓ Đã cấu hình outputs per prompt" if is_first_video else "[Step 2.5/4] ✓ Đã cấu hình outputs per prompt")
-            
+
             print("[Step 5/6] Điền prompt và tạo video..." if is_first_video else "[Step 3/4] Điền prompt và tạo video...")
             await self._fill_prompt_and_generate(prompt)
             print("[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video" if is_first_video else "[Step 3/4] ✓ Đã điền prompt và bắt đầu tạo video")
