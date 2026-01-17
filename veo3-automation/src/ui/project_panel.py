@@ -26,8 +26,23 @@ class ProjectPanel(ctk.CTkFrame):
         self.project_name_entry.pack(fill="x", padx=10, pady=5)
         self.project_name_entry.bind("<KeyRelease>", self._on_name_change)
         
-        project_file_frame = ctk.CTkFrame(self)
-        project_file_frame.pack(fill="x", padx=10, pady=5)
+        workflow_control_frame = ctk.CTkFrame(self)
+        workflow_control_frame.pack(fill="x", padx=5, pady=(10, 5))
+        
+        workflow_label = ctk.CTkLabel(workflow_control_frame, text="Điều khiển Workflow:", font=ctk.CTkFont(size=12, weight="bold"))
+        workflow_label.pack(side="left", padx=5)
+        
+        self.start_btn = ctk.CTkButton(workflow_control_frame, text="▶ Khởi động", fg_color="green", command=self._on_start_click, width=120, height=35, font=ctk.CTkFont(size=12, weight="bold"))
+        self.start_btn.pack(side="left", padx=5)
+        
+        self.stop_btn = ctk.CTkButton(workflow_control_frame, text="⏹ Dừng Workflow", fg_color="red", command=self._on_stop_click, state="disabled", width=140, height=35, font=ctk.CTkFont(size=12, weight="bold"))
+        self.stop_btn.pack(side="left", padx=5)
+        
+        self.scrollable_frame = ctk.CTkScrollableFrame(self)
+        self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        project_file_frame = ctk.CTkFrame(self.scrollable_frame)
+        project_file_frame.pack(fill="x", pady=5)
         
         self.project_file_var = ctk.StringVar()
         self.project_file_dropdown = ctk.CTkComboBox(
@@ -44,11 +59,11 @@ class ProjectPanel(ctk.CTkFrame):
         new_btn = ctk.CTkButton(project_file_frame, text="+ Mới", width=80, command=self._new_project)
         new_btn.pack(side="left", padx=2)
         
-        run_type_label = ctk.CTkLabel(self, text="Chọn kiểu chạy:")
+        run_type_label = ctk.CTkLabel(self.scrollable_frame, text="Chọn kiểu chạy:")
         run_type_label.pack(pady=(10, 5))
         
-        run_type_frame = ctk.CTkFrame(self)
-        run_type_frame.pack(fill="x", padx=10, pady=5)
+        run_type_frame = ctk.CTkFrame(self.scrollable_frame)
+        run_type_frame.pack(fill="x", pady=5)
         
         self.run_type_var = ctk.StringVar(value="Text to Video API")
         run_type_dropdown = ctk.CTkComboBox(
@@ -65,31 +80,31 @@ class ProjectPanel(ctk.CTkFrame):
         copy_idea_btn = ctk.CTkButton(run_type_frame, text="Copy ý tưởng", width=100, command=self._copy_idea)
         copy_idea_btn.pack(side="left", padx=2)
         
-        project_link_label = ctk.CTkLabel(self, text="Project Link (Flow):")
+        project_link_label = ctk.CTkLabel(self.scrollable_frame, text="Project Link (Flow):")
         project_link_label.pack(pady=(10, 5))
         
-        project_link_frame = ctk.CTkFrame(self)
-        project_link_frame.pack(fill="x", padx=10, pady=5)
+        project_link_frame = ctk.CTkFrame(self.scrollable_frame)
+        project_link_frame.pack(fill="x", pady=5)
         
         self.project_link_entry = ctk.CTkEntry(project_link_frame, placeholder_text="https://labs.google/fx/tools/flow/project/...")
         self.project_link_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
         
-        gemini_link_label = ctk.CTkLabel(self, text="Gemini Project Link:")
+        gemini_link_label = ctk.CTkLabel(self.scrollable_frame, text="Gemini Project Link:")
         gemini_link_label.pack(pady=(10, 5))
         
-        gemini_link_frame = ctk.CTkFrame(self)
-        gemini_link_frame.pack(fill="x", padx=10, pady=5)
+        gemini_link_frame = ctk.CTkFrame(self.scrollable_frame)
+        gemini_link_frame.pack(fill="x", pady=5)
         
         self.gemini_project_link_entry = ctk.CTkEntry(gemini_link_frame, placeholder_text="https://gemini.google.com/app/...")
         self.gemini_project_link_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
         
-        upload_video_btn = ctk.CTkButton(self, text="Upload Video", command=self._upload_video)
-        upload_video_btn.pack(fill="x", padx=10, pady=5)
+        upload_video_btn = ctk.CTkButton(self.scrollable_frame, text="Upload Video", command=self._upload_video)
+        upload_video_btn.pack(fill="x", pady=5)
         
-        script_frame = ctk.CTkFrame(self)
-        script_frame.pack(fill="x", padx=10, pady=(10, 5))
+        script_frame = ctk.CTkFrame(self.scrollable_frame)
+        script_frame.pack(fill="x", pady=(10, 5))
         
-        script_label = ctk.CTkLabel(script_frame, text="Kịch bản / Ý tưởng (từ VIDEO_ANALYSIS):")
+        script_label = ctk.CTkLabel(script_frame, text="Kịch bản / Ý tưởng:")
         script_label.pack(side="left", padx=5)
         
         analyze_btn = ctk.CTkButton(script_frame, text="Phân tích video", width=120, command=self._on_analyze_video)
@@ -98,11 +113,11 @@ class ProjectPanel(ctk.CTkFrame):
         generate_content_btn = ctk.CTkButton(script_frame, text="Tạo nội dung", width=120, command=self._on_generate_content, fg_color="green")
         generate_content_btn.pack(side="right", padx=5)
         
-        self.script_textbox = ctk.CTkTextbox(self, height=150)
-        self.script_textbox.pack(fill="both", expand=True, padx=10, pady=5)
+        self.script_textbox = ctk.CTkTextbox(self.scrollable_frame, height=150)
+        self.script_textbox.pack(fill="x", pady=5)
         
-        ai_model_frame = ctk.CTkFrame(self)
-        ai_model_frame.pack(fill="x", padx=10, pady=5)
+        ai_model_frame = ctk.CTkFrame(self.scrollable_frame)
+        ai_model_frame.pack(fill="x", pady=5)
         
         ai_model_label = ctk.CTkLabel(ai_model_frame, text="AI model viết prompt:")
         ai_model_label.pack(side="left", padx=5)
@@ -115,8 +130,8 @@ class ProjectPanel(ctk.CTkFrame):
         )
         ai_model_dropdown.pack(side="left", fill="x", expand=True, padx=5)
         
-        style_frame = ctk.CTkFrame(self)
-        style_frame.pack(fill="x", padx=10, pady=5)
+        style_frame = ctk.CTkFrame(self.scrollable_frame)
+        style_frame.pack(fill="x", pady=5)
         
         style_label = ctk.CTkLabel(style_frame, text="Phong cách:")
         style_label.pack(side="left", padx=5)
@@ -136,8 +151,8 @@ class ProjectPanel(ctk.CTkFrame):
         self.duration_entry.insert(0, "120")
         self.duration_entry.pack(side="left", padx=5)
         
-        veo_frame = ctk.CTkFrame(self)
-        veo_frame.pack(fill="x", padx=10, pady=5)
+        veo_frame = ctk.CTkFrame(self.scrollable_frame)
+        veo_frame.pack(fill="x", pady=5)
         
         veo_label = ctk.CTkLabel(veo_frame, text="Veo Profile:")
         veo_label.pack(side="left", padx=5)
@@ -150,8 +165,8 @@ class ProjectPanel(ctk.CTkFrame):
         )
         veo_dropdown.pack(side="left", fill="x", expand=True, padx=5)
         
-        aspect_ratio_frame = ctk.CTkFrame(self)
-        aspect_ratio_frame.pack(fill="x", padx=10, pady=5)
+        aspect_ratio_frame = ctk.CTkFrame(self.scrollable_frame)
+        aspect_ratio_frame.pack(fill="x", pady=5)
         
         aspect_ratio_label = ctk.CTkLabel(aspect_ratio_frame, text="Aspect Ratio:")
         aspect_ratio_label.pack(side="left", padx=5)
@@ -164,8 +179,8 @@ class ProjectPanel(ctk.CTkFrame):
         )
         aspect_ratio_dropdown.pack(side="left", fill="x", expand=True, padx=5)
         
-        button_frame = ctk.CTkFrame(self)
-        button_frame.pack(fill="x", padx=10, pady=20)
+        button_frame = ctk.CTkFrame(self.scrollable_frame)
+        button_frame.pack(fill="x", pady=20)
         
         delete_btn = ctk.CTkButton(button_frame, text="Xóa", fg_color="red", command=self._delete_project)
         delete_btn.pack(side="left", padx=5, fill="x", expand=True)
@@ -175,12 +190,6 @@ class ProjectPanel(ctk.CTkFrame):
         
         all_btn = ctk.CTkButton(button_frame, text="Tất cả", command=self._on_all_click)
         all_btn.pack(side="left", padx=5, fill="x", expand=True)
-        
-        stop_btn = ctk.CTkButton(button_frame, text="Dừng lại", fg_color="red", command=self._on_stop_click)
-        stop_btn.pack(side="left", padx=5, fill="x", expand=True)
-        
-        start_btn = ctk.CTkButton(button_frame, text="Khởi động", fg_color="orange", command=self._on_start_click)
-        start_btn.pack(side="left", padx=5, fill="x", expand=True)
     
     def _on_name_change(self, event=None):
         if self.on_project_change:
@@ -323,4 +332,12 @@ class ProjectPanel(ctk.CTkFrame):
             "project_link": self.project_link_entry.get(),
             "gemini_project_link": self.gemini_project_link_entry.get()
         }
+    
+    def set_workflow_running(self, is_running: bool):
+        if is_running:
+            self.stop_btn.configure(state="normal", text="⏹ Dừng Workflow", fg_color="red", hover_color="darkred")
+            self.start_btn.configure(state="disabled", fg_color="gray")
+        else:
+            self.stop_btn.configure(state="disabled", text="⏹ Dừng Workflow", fg_color="gray", hover_color="gray")
+            self.start_btn.configure(state="normal", fg_color="green", hover_color="darkgreen")
 

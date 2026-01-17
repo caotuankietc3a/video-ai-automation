@@ -50,14 +50,20 @@ class BrowserAutomation:
         if not self.page:
             raise RuntimeError("Browser not started")
         try:
-            await self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
-            await self.page.wait_for_timeout(2000)
+            await self.page.goto(url, timeout=self.timeout)
+            await self.page.wait_for_load_state("load", timeout=self.timeout)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 logger.warning("Page context destroyed during navigation, restarting browser...")
                 await self.start()
-                await self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
-                await self.page.wait_for_timeout(2000)
+                await self.page.goto(url, wait_until="networkidle", timeout=self.timeout)
+                await self.page.wait_for_load_state("networkidle", timeout=self.timeout)
+            elif "Timeout" in str(e) or "timeout" in str(e).lower():
+                logger.warning(f"Navigation timeout, trying with load state...")
+                try:
+                    await self.page.wait_for_load_state("domcontentloaded", timeout=5000)
+                except Exception:
+                    pass
             else:
                 raise
     

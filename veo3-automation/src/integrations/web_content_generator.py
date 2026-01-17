@@ -19,7 +19,11 @@ class WebContentGenerator:
             )
 
     async def generate(self, prompt: str, project_config: Optional[dict] = None) -> str:
+        logger.info("Bắt đầu generate content qua Gemini Web")
+        logger.debug(f"Prompt length: {len(prompt)} characters")
+        
         await browser_automation.start()
+        logger.debug("Browser automation đã khởi động")
         
         gemini_link = None
         if project_config:
@@ -27,20 +31,28 @@ class WebContentGenerator:
         
         if gemini_link:
             url_to_use = gemini_link
+            logger.info(f"Sử dụng gemini_project_link: {gemini_link}")
         else:
             url_to_use = self.url
+            logger.info(f"Sử dụng URL mặc định: {url_to_use}")
         
+        logger.info(f"Điều hướng đến URL: {url_to_use}")
         await browser_automation.navigate(url_to_use)
 
+        logger.info("Đảm bảo đã đăng nhập vào Gemini")
         await browser_automation.ensure_gemini_login()
+        logger.info("Chọn chế độ Fast mode")
         await browser_automation.select_fast_mode()
 
         input_selector = 'textarea, [contenteditable="true"]'
+        logger.debug(f"Chờ input selector: {input_selector}")
         await browser_automation.wait_for_selector(input_selector, timeout=20000)
 
+        logger.info("Điền prompt vào input field")
         await browser_automation.fill(input_selector, "")
         await asyncio.sleep(0.2)
         await browser_automation.fill(input_selector, prompt)
+        logger.debug("Đã điền prompt thành công")
 
         send_selector = (
             'button[aria-label="Send message"], '
@@ -51,33 +63,45 @@ class WebContentGenerator:
         )
         try:
             await asyncio.sleep(0.5)
+            logger.debug("Chờ button send xuất hiện")
             await browser_automation.wait_for_selector(send_selector, timeout=10000)
+            logger.info("Click button send để gửi message")
             await browser_automation.click(send_selector)
             await asyncio.sleep(0.5)
+            logger.debug("Đã gửi message thành công")
         except Exception as e:
-            logger.warning(f"Không thể click button send: {e}")
+            logger.error(f"Không thể click button send: {e}")
             raise RuntimeError("Không thể gửi message, không tìm thấy button send")
 
         await asyncio.sleep(0.2)
         response_selector = (
             '[data-message-content], article, div.markdown, .response'
         )
+        logger.info("Chờ response từ Gemini (timeout: 120s)")
         await browser_automation.wait_for_selector(
             response_selector,
             timeout=120000,
         )
+        logger.debug("Response container đã xuất hiện")
 
+        logger.info("Chờ response hoàn tất (timeout: 60s)")
         await browser_automation.wait_for_selector(
             '.response-container-footer',
             timeout=60000,
         )
+        logger.debug("Response đã hoàn tất")
 
+        logger.info("Lấy nội dung response từ web UI")
         text = await browser_automation.get_text(response_selector)
         if not text:
+            logger.error("Không lấy được nội dung từ web UI")
             raise RuntimeError("Không lấy được nội dung từ web UI")
+        
+        logger.info(f"Đã lấy được response, độ dài: {len(text)} characters")
         
         if project_config and not project_config.get("gemini_project_link"):
             try:
+                logger.debug("Kiểm tra và lưu gemini_project_link")
                 current_url = await browser_automation.get_current_url()
                 if current_url and "/app/" in current_url:
                     project_id = current_url.split("/app/")[-1].split("?")[0].split("/")[0]
@@ -92,4 +116,5 @@ class WebContentGenerator:
             except Exception as e:
                 logger.warning(f"Không thể lưu gemini_project_link: {e}")
         
+        logger.info("Hoàn thành generate content")
         return text.strip()

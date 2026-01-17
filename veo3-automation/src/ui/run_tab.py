@@ -99,6 +99,8 @@ class RunTab(ctk.CTkFrame):
             on_logs=update_ui_logs
         )
         
+        self.after(0, lambda: self.project_panel.set_workflow_running(True))
+        
         def run_async():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -116,15 +118,19 @@ class RunTab(ctk.CTkFrame):
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Lỗi", f"Workflow thất bại: {str(e)}"))
             finally:
+                self.after(0, lambda: self.project_panel.set_workflow_running(False))
                 loop.close()
         
         thread = threading.Thread(target=run_async, daemon=True)
         thread.start()
     
     def _stop_workflow(self):
-        if self.workflow:
+        if self.workflow and self.workflow.is_running:
             self.workflow.stop()
+            self.project_panel.set_workflow_running(False)
             messagebox.showinfo("Thông báo", "Workflow đã dừng")
+        else:
+            messagebox.showinfo("Thông báo", "Không có workflow nào đang chạy")
     
     def upload_video(self, file_path: str = None):
         if not file_path:
@@ -220,6 +226,8 @@ class RunTab(ctk.CTkFrame):
             on_videos=update_ui_videos,
             on_logs=update_ui_logs
         )
+        
+        self.after(0, lambda: self.project_panel.set_workflow_running(True))
         
         def run_async():
             loop = asyncio.new_event_loop()
@@ -323,6 +331,7 @@ class RunTab(ctk.CTkFrame):
                 error_msg = str(e)
                 self.after(0, lambda msg=error_msg: messagebox.showerror("Lỗi", f"Step thất bại: {msg}"))
             finally:
+                self.after(0, lambda: self.project_panel.set_workflow_running(False))
                 loop.close()
         
         thread = threading.Thread(target=run_async, daemon=True)
@@ -351,6 +360,8 @@ class RunTab(ctk.CTkFrame):
         self.workflow.set_update_callbacks(
             on_logs=update_ui_logs
         )
+        
+        self.after(0, lambda: self.project_panel.set_workflow_running(True))
         
         def retry_async():
             loop = asyncio.new_event_loop()
@@ -392,6 +403,7 @@ class RunTab(ctk.CTkFrame):
                 error_msg = str(e)
                 self.after(0, lambda msg=error_msg: messagebox.showerror("Lỗi", f"Retry video thất bại: {msg}"))
             finally:
+                self.after(0, lambda: self.project_panel.set_workflow_running(False))
                 loop.close()
         
         thread = threading.Thread(target=retry_async, daemon=True)
