@@ -55,6 +55,8 @@ class RunTab(ctk.CTkFrame):
                 gemini_link = project.get("gemini_project_link", "")
                 flow_link = project.get("project_link", "")
                 self.result_panel.update_project_links(gemini_link, flow_link)
+        else:
+            self.result_panel.clear_all()
     
     def _start_workflow(self):
         if self.workflow and self.workflow.is_running:

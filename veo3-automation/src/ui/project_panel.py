@@ -79,9 +79,6 @@ class ProjectPanel(ctk.CTkFrame):
         copy_youtube_btn = ctk.CTkButton(run_type_frame, text="Copy từ Youtube/Tiktok:", width=150, command=self._copy_from_url)
         copy_youtube_btn.pack(side="left", padx=2)
         
-        copy_idea_btn = ctk.CTkButton(run_type_frame, text="Copy ý tưởng", width=100, command=self._copy_idea)
-        copy_idea_btn.pack(side="left", padx=2)
-        
         project_link_label = ctk.CTkLabel(self.scrollable_frame, text="Project Link (Flow):")
         project_link_label.pack(pady=(10, 5))
         
@@ -249,17 +246,50 @@ class ProjectPanel(ctk.CTkFrame):
         self._load_project_data(project)
     
     def _copy_project(self):
+        from tkinter import messagebox
+        
         current_file = self.project_file_var.get()
-        if current_file:
-            new_name = f"{self.project_name_entry.get()}_Copy"
-            new_file = project_manager.copy_project(current_file, new_name)
-            if new_file:
-                self._update_file_list()
-                self.project_file_var.set(new_file)
+        if not current_file:
+            messagebox.showwarning("Cảnh báo", "Vui lòng chọn project để copy")
+            return
+        
+        if not self.current_project:
+            messagebox.showwarning("Cảnh báo", "Không tìm thấy project để copy")
+            return
+        
+        original_name = self.current_project.get("name", "Project")
+        new_name = f"{original_name}_Copy"
+        
+        new_file = project_manager.copy_project(current_file, new_name)
+        if new_file:
+            self._update_file_list()
+            self.project_file_var.set(new_file)
+            project = project_manager.load_project(new_file)
+            if project:
+                self.current_project = project
+                self._load_project_data(project)
+                if self.on_project_change:
+                    self.on_project_change()
+            messagebox.showinfo("Thành công", f"Đã copy project '{original_name}' thành '{new_name}'")
+        else:
+            messagebox.showerror("Lỗi", "Không thể copy project. Vui lòng thử lại.")
     
     def _save_project(self):
+        from tkinter import messagebox
+        
         if not self.current_project:
             self._new_project()
+            return
+        
+        project_name = self.project_name_entry.get() or self.current_project.get("name", "Project")
+        
+        confirm = messagebox.askyesno(
+            "Xác nhận lưu",
+            f"Bạn có chắc chắn muốn lưu project '{project_name}'?",
+            icon='question'
+        )
+        
+        if not confirm:
             return
         
         project_data = {
@@ -277,14 +307,48 @@ class ProjectPanel(ctk.CTkFrame):
         
         project_manager.update_project(self.current_project["file"], project_data)
         self.current_project.update(project_data)
+        messagebox.showinfo("Thành công", f"Đã lưu project '{project_name}'")
     
     def _delete_project(self):
         current_file = self.project_file_var.get()
-        if current_file:
-            project_manager.delete_project(current_file)
-            self._update_file_list()
-            self.project_file_var.set("")
-            self.current_project = None
+        if not current_file:
+            return
+        
+        project = project_manager.load_project(current_file)
+        if not project:
+            return
+        
+        project_name = project.get('name', current_file)
+        
+        from tkinter import messagebox
+        confirm = messagebox.askyesno(
+            "Xác nhận xóa",
+            f"Bạn có chắc chắn muốn xóa project '{project_name}'?\n\n"
+            "Hành động này sẽ xóa:\n"
+            "- File project\n"
+            "- Tất cả videos\n"
+            "- Tất cả outputs\n"
+            "- Tất cả prompts\n"
+            "- Tất cả logs\n\n"
+            "Hành động này không thể hoàn tác!",
+            icon='warning'
+        )
+        
+        if confirm:
+            success = project_manager.delete_project(current_file)
+            if success:
+                self._update_file_list()
+                self.project_file_var.set("")
+                self.current_project = None
+                self.project_name_entry.delete(0, "end")
+                self.script_textbox.delete("1.0", "end")
+                self.project_link_entry.delete(0, "end")
+                self.gemini_project_link_entry.delete(0, "end")
+                if self.on_project_change:
+                    self.on_project_change()
+                messagebox.showinfo("Thành công", f"Đã xóa project '{project_name}'")
+            else:
+                messagebox.showerror("Lỗi", "Không thể xóa project. Vui lòng thử lại.")
     
     def _update_file_list(self):
         files = project_manager.list_projects()
@@ -310,12 +374,6 @@ class ProjectPanel(ctk.CTkFrame):
                 parent = self.master
                 if hasattr(parent, 'upload_video_from_url'):
                     parent.upload_video_from_url(url)
-    
-    def _copy_idea(self):
-        idea_text = self.script_textbox.get("1.0", "end-1c")
-        parent = self.master
-        if hasattr(parent, "set_video_analysis_from_idea"):
-            parent.set_video_analysis_from_idea(idea_text)
     
     def _upload_video(self):
         from tkinter import filedialog

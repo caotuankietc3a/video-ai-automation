@@ -1,8 +1,9 @@
 import os
 import json
+import shutil
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from ..config.constants import PROJECTS_DIR
+from ..config.constants import PROJECTS_DIR, VIDEOS_DIR, OUTPUTS_DIR, PROMPTS_RESPONSES_DIR, LOGS_DIR
 
 class ProjectManager:
     def __init__(self):
@@ -86,11 +87,40 @@ class ProjectManager:
         return new_file
     
     def delete_project(self, project_file: str) -> bool:
+        project = self.load_project(project_file)
+        if not project:
+            return False
+        
+        project_name = project.get('name', '')
         project_path = os.path.join(PROJECTS_DIR, project_file)
-        if os.path.exists(project_path):
-            os.remove(project_path)
+        
+        try:
+            if os.path.exists(project_path):
+                os.remove(project_path)
+            
+            if project_name:
+                videos_dir = os.path.join(VIDEOS_DIR, project_name)
+                if os.path.exists(videos_dir):
+                    shutil.rmtree(videos_dir)
+                
+                outputs_dir = os.path.join(OUTPUTS_DIR, project_name)
+                if os.path.exists(outputs_dir):
+                    shutil.rmtree(outputs_dir)
+                
+                prompts_dir = os.path.join(PROMPTS_RESPONSES_DIR, project_name)
+                if os.path.exists(prompts_dir):
+                    shutil.rmtree(prompts_dir)
+                
+                if os.path.exists(LOGS_DIR):
+                    for log_file in os.listdir(LOGS_DIR):
+                        if log_file.startswith(f"{project_name}_") and log_file.endswith('.json'):
+                            log_path = os.path.join(LOGS_DIR, log_file)
+                            os.remove(log_path)
+            
             return True
-        return False
+        except Exception as e:
+            print(f"Lỗi khi xóa project: {e}")
+            return False
     
     def update_project(self, project_file: str, updates: Dict[str, Any]) -> bool:
         project = self.load_project(project_file)
