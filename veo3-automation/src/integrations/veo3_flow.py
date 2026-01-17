@@ -79,8 +79,7 @@ class VEO3Flow:
             
             aspect_ratio_button_selector = (
                 'button[role="combobox"][aria-controls*="radix"]:has-text("Aspect Ratio"), '
-                'button[role="combobox"]:has(span:has-text("Aspect Ratio")), '
-                'button[role="combobox"][aria-expanded="false"]'
+                'button[role="combobox"]:has(span:has-text("Aspect Ratio"))'
             )
             await browser_automation.wait_for_selector(aspect_ratio_button_selector, timeout=5000)
             await browser_automation.click(aspect_ratio_button_selector)
@@ -262,11 +261,25 @@ class VEO3Flow:
         try:
             success = await browser_automation.evaluate("""
                 () => {
-                    const video = document.querySelector('video[src*="blob"], video[src*="http"]');
-                    if (!video) return false;
+                    const addClipButton = document.getElementById('PINHOLE_ADD_CLIP_CARD_ID');
+                    if (!addClipButton) return false;
                     
-                    video.click();
-                    return true;
+                    const parent = addClipButton.parentElement;
+                    if (!parent) return false;
+                    
+                    const siblings = Array.from(parent.children).filter(child => 
+                        child.tagName === 'DIV' && child.id !== 'PINHOLE_ADD_CLIP_CARD_ID'
+                    );
+                    
+                    if (siblings.length < 2) return false;
+                    
+                    const secondFromBottom = siblings[siblings.length - 2];
+                    if (secondFromBottom) {
+                        secondFromBottom.click();
+                        return true;
+                    }
+                    
+                    return false;
                 }
             """)
             
@@ -274,9 +287,33 @@ class VEO3Flow:
                 await asyncio.sleep(1)
                 return True
             
-            video_selector = 'video[src*="blob"], video[src*="http"], video'
-            await browser_automation.wait_for_selector(video_selector, timeout=5000)
-            await browser_automation.click(video_selector)
+            await browser_automation.wait_for_selector('#PINHOLE_ADD_CLIP_CARD_ID', timeout=10000)
+            
+            await browser_automation.evaluate("""
+                () => {
+                    const addClipButton = document.getElementById('PINHOLE_ADD_CLIP_CARD_ID');
+                    if (!addClipButton) return false;
+                    
+                    const parent = addClipButton.parentElement;
+                    if (!parent) return false;
+                    
+                    const siblings = Array.from(parent.children).filter(child => 
+                        child.tagName === 'DIV' && child.id !== 'PINHOLE_ADD_CLIP_CARD_ID'
+                    );
+                    const firstSibling = siblings[0];
+                    
+                    if (firstSibling.children.length < 2) return false;
+                    
+                    const secondFromBottom = firstSibling.children[firstSibling.children.length - 2];
+                    if (secondFromBottom) {
+                        secondFromBottom.click();
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            """)
+            
             await asyncio.sleep(1)
             return True
         except Exception as e:
@@ -286,23 +323,48 @@ class VEO3Flow:
     async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any], is_first_video: bool = True) -> Optional[Dict[str, Any]]:
         try:
             if is_first_video:
+                print("[Step 1/6] Khởi động browser...")
                 await browser_automation.start()
+                print("[Step 1/6] ✓ Browser đã khởi động")
                 
+                print("[Step 2/6] Điều hướng đến project...")
                 is_new_project = await self._navigate_to_project(project_config)
+                print(f"[Step 2/6] ✓ Đã điều hướng đến project (is_new_project: {is_new_project})")
                 
-                if is_new_project:
-                    await self._click_scenebuilder()
+                print("[Step 3/6] Click nút Scenebuilder...")
+                await self._click_scenebuilder()
+                print("[Step 3/6] ✓ Đã click Scenebuilder")
                 
+                print("[Step 4/6] Cấu hình aspect ratio...")
                 await self._configure_aspect_ratio(project_config)
+                print("[Step 4/6] ✓ Đã cấu hình aspect ratio")
             else:
+                print("[Step 1/4] Kéo slider đến scene cuối cùng...")
                 await self._scroll_to_last_scene()
+                print("[Step 1/4] ✓ Đã kéo slider đến cuối")
+                
+                print("[Step 2/4] Click vào video hiện tại...")
                 await self._click_current_video()
                 await asyncio.sleep(1)
+                print("[Step 2/4] ✓ Đã click video hiện tại")
             
+            print("[Step 5/6] Điền prompt và tạo video..." if is_first_video else "[Step 3/4] Điền prompt và tạo video...")
             await self._fill_prompt_and_generate(prompt)
+            print("[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video" if is_first_video else "[Step 3/4] ✓ Đã điền prompt và bắt đầu tạo video")
             
+            print("[Step 6/6] Đang chờ video hoàn thành..." if is_first_video else "[Step 4/4] Đang chờ video hoàn thành...")
             is_complete = await self._wait_for_video_completion()
+            if is_complete:
+                print("[Step 6/6] ✓ Video đã hoàn thành" if is_first_video else "[Step 4/4] ✓ Video đã hoàn thành")
+            else:
+                print("[Step 6/6] ⚠ Video chưa hoàn thành (timeout)" if is_first_video else "[Step 4/4] ⚠ Video chưa hoàn thành (timeout)")
+            
+            print("Đang trích xuất video URL...")
             video_url = await self._extract_video_result()
+            if video_url:
+                print(f"✓ Đã trích xuất video URL: {video_url[:50]}...")
+            else:
+                print("⚠ Không thể trích xuất video URL")
             
             return {
                 "video_url": video_url,
@@ -311,7 +373,9 @@ class VEO3Flow:
             }
             
         except Exception as e:
-            print(f"Error in browser automation: {e}")
+            print(f"❌ Lỗi trong browser automation: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "video_url": None,
                 "success": False,

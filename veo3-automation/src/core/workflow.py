@@ -222,6 +222,10 @@ class Workflow:
         try:
             user_script = project_config.get("script", "")
             content = await self.content_generator.generate_content(video_analysis, user_script, self.project_name, project_config)
+            
+            if content is None:
+                raise RuntimeError("Không thể tạo nội dung, generate_content trả về None")
+            
             self.logger.info("Đã tạo nội dung từ VIDEO_ANALYSIS")
             
             if "logs" in self.update_callbacks:
@@ -231,7 +235,7 @@ class Workflow:
             if project_file:
                 project = project_manager.load_project(project_file)
                 if project:
-                    project["script"] = content.get("full_content", "")
+                    project["script"] = content.get("full_content", "") if content else ""
                     project_manager.save_project(project)
             
             return content

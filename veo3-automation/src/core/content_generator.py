@@ -30,16 +30,19 @@ class ContentGenerator:
                 raise RuntimeError(f"AI provider {self.provider_name} is not available")
             content_text = await self.provider.generate_text(prompt)
         
-        sections = parse_content_sections(content_text)
+        if not content_text:
+            raise RuntimeError("Không thể tạo nội dung, content_text rỗng")
         
         project_name = project_name or self.project_name
         from ..utils.response_saver import save_gemini_response
         save_gemini_response(project_name, "content", content_text)
         
+        sections = parse_content_sections(content_text)
+        
         return {
             "full_content": content_text,
-            "characters_section": sections.get("characters", ""),
-            "story_section": sections.get("story", ""),
-            "storyboard_section": sections.get("storyboard", "")
+            "characters_section": sections.get("characters", "") if sections else "",
+            "story_section": sections.get("story", "") if sections else "",
+            "storyboard_section": sections.get("storyboard", "") if sections else ""
         }
 

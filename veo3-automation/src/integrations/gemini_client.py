@@ -1,36 +1,32 @@
 import os
-import google.generativeai as genai
+import google.genai as genai
 from typing import List, Optional
-from PIL import Image
-from .ai_providers import AIProvider, encode_image
+from .ai_providers import AIProvider
 from ..data.config_manager import config_manager
 
 class GeminiClient(AIProvider):
     def __init__(self):
         api_key = config_manager.get_api_key("gemini")
         if api_key:
-            genai.configure(api_key=api_key)
-        self.model = None
-        self.vision_model = None
-    
-    def _get_model(self):
-        if not self.model:
-            self.model = genai.GenerativeModel('gemini-pro')
-        return self.model
-    
-    def _get_vision_model(self):
-        if not self.vision_model:
-            self.vision_model = genai.GenerativeModel('gemini-pro-vision')
-        return self.vision_model
+            self.client = genai.Client(api_key=api_key)
+        else:
+            self.client = None
+        self.model_name = "gemini-1.5-pro"
+        self.vision_model_name = "gemini-1.5-pro"
     
     async def generate_text(self, prompt: str, **kwargs) -> str:
         if not self.is_available():
             raise ValueError("Gemini API key not configured")
         
         import asyncio
-        model = self._get_model()
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, lambda: model.generate_content(prompt))
+        response = await loop.run_in_executor(
+            None, 
+            lambda: self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
+        )
         return response.text
     
     async def generate_with_images(self, prompt: str, image_paths: List[str], **kwargs) -> str:
@@ -38,22 +34,43 @@ class GeminiClient(AIProvider):
             raise ValueError("Gemini API key not configured")
         
         import asyncio
-        model = self._get_vision_model()
+        from google.genai import types
         
-        images = []
+        parts = [types.Part.from_text(text=prompt)]
+        
         for img_path in image_paths:
             if os.path.exists(img_path):
-                img = Image.open(img_path)
-                images.append(img)
+                with open(img_path, "rb") as f:
+                    image_data = f.read()
+                parts.append(types.Part.from_bytes(
+                    data=image_data,
+                    mime_type=self._get_mime_type(img_path)
+                ))
         
-        if not images:
+        if len(parts) == 1:
             return await self.generate_text(prompt, **kwargs)
         
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, lambda: model.generate_content([prompt] + images))
+        response = await loop.run_in_executor(
+            None,
+            lambda: self.client.models.generate_content(
+                model=self.vision_model_name,
+                contents=parts
+            )
+        )
         return response.text
     
+    def _get_mime_type(self, file_path: str) -> str:
+        ext = os.path.splitext(file_path)[1].lower()
+        mime_types = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+        }
+        return mime_types.get(ext, 'image/jpeg')
+    
     def is_available(self) -> bool:
-        api_key = config_manager.get_api_key("gemini")
-        return bool(api_key)
+        return self.client is not None
 

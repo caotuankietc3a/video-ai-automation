@@ -31,6 +31,10 @@ class SceneGenerator:
                 raise RuntimeError(f"AI provider {self.provider_name} is not available")
             response_text = await self.provider.generate_text(prompt)
         
+        project_name = project_name or self.project_name
+        from ..utils.response_saver import save_gemini_response
+        save_gemini_response(project_name, "scenes", response_text)
+        
         try:
             scenes = extract_json_from_text(response_text)
             
@@ -39,10 +43,6 @@ class SceneGenerator:
             
             if not validate_scene_json(scenes):
                 raise ValueError("Invalid scene JSON structure")
-            
-            project_name = project_name or self.project_name
-            from ..utils.response_saver import save_gemini_response
-            save_gemini_response(project_name, "scenes", response_text)
             
             return scenes
         except Exception as e:

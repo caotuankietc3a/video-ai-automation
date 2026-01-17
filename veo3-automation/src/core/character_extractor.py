@@ -28,15 +28,15 @@ class CharacterExtractor:
                 raise RuntimeError(f"AI provider {self.provider_name} is not available")
             response_text = await self.provider.generate_text(prompt)
         
+        project_name = project_name or self.project_name
+        from ..utils.response_saver import save_gemini_response
+        save_gemini_response(project_name, "characters", response_text)
+        
         try:
             characters_json = extract_json_from_text(response_text)
             
             if not validate_character_json(characters_json):
                 raise ValueError("Invalid character JSON structure")
-            
-            project_name = project_name or self.project_name
-            from ..utils.response_saver import save_gemini_response
-            save_gemini_response(project_name, "characters", response_text)
             
             return characters_json
         except Exception as e:

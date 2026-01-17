@@ -25,6 +25,10 @@ class VEO3PromptGenerator:
                               characters_json: Dict[str, Any], project_name: Optional[str] = None, project_config: Optional[dict] = None) -> List[str]:
         characters_str = json.dumps(characters_json, ensure_ascii=False, indent=2)
         prompts = []
+        all_responses = []
+        
+        project_name = project_name or self.project_name
+        from ..utils.response_saver import save_gemini_response
         
         previous_scene = None
         for i, scene in enumerate(scenes, 1):
@@ -41,18 +45,17 @@ class VEO3PromptGenerator:
             
             if self.use_browser and self.web_client is not None:
                 veo3_prompt = await self.web_client.generate(prompt, project_config)
-                prompts.append(veo3_prompt.strip())
             else:
                 if not self.provider.is_available():
                     raise RuntimeError(f"AI provider {self.provider_name} is not available")
                 veo3_prompt = await self.provider.generate_text(prompt)
-                prompts.append(veo3_prompt.strip())
+            
+            all_responses.append(veo3_prompt)
+            prompts.append(veo3_prompt.strip())
             
             previous_scene = scene
         
-        project_name = project_name or self.project_name
-        from ..utils.response_saver import save_gemini_response
-        prompts_text = "\n\n--- PROMPT SEPARATOR ---\n\n".join(prompts)
+        prompts_text = "\n\n--- PROMPT SEPARATOR ---\n\n".join(all_responses)
         save_gemini_response(project_name, "veo3_prompts", prompts_text)
         
         return prompts
