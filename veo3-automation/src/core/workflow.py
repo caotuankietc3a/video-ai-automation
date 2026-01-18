@@ -30,7 +30,8 @@ class Workflow:
                             on_scenes: Optional[Callable] = None,
                             on_prompts: Optional[Callable] = None,
                             on_videos: Optional[Callable] = None,
-                            on_logs: Optional[Callable] = None):
+                            on_logs: Optional[Callable] = None,
+                            on_project_links: Optional[Callable] = None):
         if on_characters:
             self.update_callbacks["characters"] = on_characters
         if on_scenes:
@@ -41,6 +42,8 @@ class Workflow:
             self.update_callbacks["videos"] = on_videos
         if on_logs:
             self.update_callbacks["logs"] = on_logs
+        if on_project_links:
+            self.update_callbacks["project_links"] = on_project_links
     
     def _update_progress(self, message: str, progress: float):
         self.logger.info(message)
@@ -351,8 +354,18 @@ class Workflow:
                 if "logs" in self.update_callbacks:
                     self.update_callbacks["logs"]()
             
+            def on_project_link_updated(gemini_link: str, flow_link: str):
+                if flow_link:
+                    project_config["project_link"] = flow_link
+                if gemini_link:
+                    project_config["gemini_project_link"] = gemini_link
+                if "project_links" in self.update_callbacks:
+                    self.update_callbacks["project_links"](gemini_link, flow_link)
+                if "logs" in self.update_callbacks:
+                    self.update_callbacks["logs"]()
+            
             use_browser = project_config.get("use_browser_automation", True)
-            video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser, on_video_generated)
+            video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser, on_video_generated, on_project_link_updated)
             self.logger.info("Đã gọi generate_videos cho VEO3")
             
             if "videos" in self.update_callbacks:

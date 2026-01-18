@@ -463,7 +463,7 @@ class VEO3Flow:
             print(f"Warning: Không thể click video: {e}")
             return False
     
-    async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any], is_first_video: bool = True) -> Optional[Dict[str, Any]]:
+    async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any], is_first_video: bool = True, on_project_link_updated: Optional[Callable[[str, str], None]] = None) -> Optional[Dict[str, Any]]:
         try:
             if is_first_video:
                 print("[Step 1/6] Khởi động browser...")
@@ -473,6 +473,13 @@ class VEO3Flow:
                 print("[Step 2/6] Điều hướng đến project...")
                 is_new_project = await self._navigate_to_project(project_config)
                 print(f"[Step 2/6] ✓ Đã điều hướng đến project (is_new_project: {is_new_project})")
+                
+                project_link = project_config.get("project_link", "")
+                if project_link and on_project_link_updated:
+                    try:
+                        on_project_link_updated("", project_link)
+                    except Exception as e:
+                        print(f"Warning: Không thể gọi callback on_project_link_updated: {e}")
                 
                 print("[Step 3/6] Click nút Scenebuilder...")
                 await self._click_scenebuilder()
@@ -604,17 +611,19 @@ class VEO3Flow:
                 "video_path": None
             }
     
-    async def generate_videos(self, prompts: List[str], project_config: Dict[str, Any], use_browser: bool = True, on_video_generated: Optional[Callable[[List[Dict[str, Any]]], None]] = None) -> List[Dict[str, Any]]:
+    async def generate_videos(self, prompts: List[str], project_config: Dict[str, Any], use_browser: bool = True, on_video_generated: Optional[Callable[[List[Dict[str, Any]]], None]] = None, on_project_link_updated: Optional[Callable[[str, str], None]] = None) -> List[Dict[str, Any]]:
         results = []
+        total_prompts = len(prompts)
         
         for i, prompt in enumerate(prompts):
             scene_id = f"scene_{i+1}"
             is_first_video = (i == 0)
+            is_last_video = (i == total_prompts - 1)
             project_config["current_scene_index"] = i + 1
             
             try:
                 if use_browser:
-                    video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=is_first_video)
+                    video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=is_first_video, on_project_link_updated=on_project_link_updated)
                     if isinstance(video_result, dict):
                         video_url = video_result.get("video_url")
                         success = video_result.get("success", False)
@@ -691,6 +700,22 @@ class VEO3Flow:
                         on_video_generated(results.copy())
                     except Exception as e:
                         print(f"Lỗi khi gọi callback on_video_generated: {e}")
+        
+        if use_browser and len(results) > 0:
+            last_result = results[-1]
+            if last_result.get("status") == "SUCCESSFUL":
+                print(f"\n📥 Đang download video scene cuối cùng...")
+                last_scene_id = last_result.get("scene_id", f"scene_{len(results)}")
+                video_path = await self._download_videos_from_blob(project_config, last_scene_id)
+                if video_path:
+                    results[-1]["video_path"] = video_path
+                    print(f"✅ Đã download video scene cuối: {video_path}")
+                    
+                    if on_video_generated:
+                        try:
+                            on_video_generated(results.copy())
+                        except Exception as e:
+                            print(f"Lỗi khi gọi callback: {e}")
         
         return results
 

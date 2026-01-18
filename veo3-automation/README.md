@@ -123,7 +123,84 @@ File cấu hình được lưu tại `data/config.json`. Bạn có thể chỉnh
 
 ## 📖 Sử dụng
 
-### Workflow cơ bản
+### Batch Runner (CLI)
+
+Chạy workflow VEO3 cho nhiều videos cùng lúc từ command line.
+
+#### Cách sử dụng
+
+```bash
+cd veo3-automation
+
+# Chạy với config file
+python run_batch.py data/batch_configs/sample_config.json
+
+# Override số lượng video chạy song song
+python run_batch.py config.json --max-concurrent 3
+
+# Dry run để xem preview (không thực hiện)
+python run_batch.py config.json --dry-run
+
+# Hoặc dùng shell script
+./run_batch.sh data/batch_configs/sample_config.json
+```
+
+#### Cấu trúc file JSON config
+
+```json
+{
+  "default_config": {
+    "duration": 120,
+    "style": "3d_Pixar",
+    "aspect_ratio": "Khổ dọc (9:16)",
+    "veo_profile": "VEO3 ULTRA",
+    "ai_model": "VEO3 ULTRA",
+    "outputs_per_prompt": 1
+  },
+  "max_concurrent": 2,
+  "videos": [
+    {
+      "url": "https://youtube.com/watch?v=xxx",
+      "name": "Video_1"
+    },
+    {
+      "url": "https://tiktok.com/@user/video/xxx",
+      "name": "Video_2",
+      "duration": 60,
+      "style": "anime_2d"
+    }
+  ]
+}
+```
+
+#### Các tùy chọn config
+
+| Field | Mô tả | Mặc định |
+|-------|-------|----------|
+| `duration` | Thời lượng video (giây) | 120 |
+| `style` | Phong cách video | "3d_Pixar" |
+| `aspect_ratio` | Tỷ lệ khung hình | "Khổ dọc (9:16)" |
+| `veo_profile` | VEO3 profile | "VEO3 ULTRA" |
+| `ai_model` | AI model viết prompt | "VEO3 ULTRA" |
+| `outputs_per_prompt` | Số video/prompt | 1 |
+| `max_concurrent` | Số video chạy song song | 2 |
+
+#### Styles có sẵn
+
+- `3d_Pixar`
+- `anime_2d`
+- `cinematic`
+- `live_action`
+
+#### Aspect Ratios có sẵn
+
+- `Khổ dọc (9:16)` - TikTok/Reels
+- `Khổ ngang (16:9)` - YouTube
+- `Khổ vuông (1:1)` - Instagram
+
+---
+
+### Workflow cơ bản (GUI)
 
 1. **Tạo Project mới**
 
@@ -179,7 +256,9 @@ File cấu hình được lưu tại `data/config.json`. Bạn có thể chỉnh
 
 ```
 veo3-automation/
-├── main.py                 # Entry point
+├── main.py                 # Entry point (GUI)
+├── run_batch.py            # Batch runner CLI
+├── run_batch.sh            # Shell script wrapper
 ├── requirements.txt        # Python dependencies
 ├── README.md              # Documentation
 ├── .gitignore            # Git ignore rules
@@ -192,6 +271,8 @@ veo3-automation/
 │   ├── videos/           # Uploaded videos
 │   ├── outputs/          # Generated videos
 │   ├── logs/             # Activity logs
+│   ├── batch_configs/    # Batch runner config files
+│   │   └── sample_config.json
 │   └── config.json       # App configuration
 │
 └── src/                  # Source code
@@ -201,6 +282,7 @@ veo3-automation/
     │
     ├── core/             # Workflow engine
     │   ├── workflow.py   # Main orchestrator
+    │   ├── batch_runner.py  # Batch processing
     │   ├── video_analyzer.py
     │   ├── content_generator.py
     │   ├── character_extractor.py
@@ -386,5 +468,5 @@ Nếu gặp vấn đề, vui lòng kiểm tra:
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: 2024
+**Version**: 1.1.0  
+**Last Updated**: 2026

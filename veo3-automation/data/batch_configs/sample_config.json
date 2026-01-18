@@ -1,0 +1,31 @@
+{
+  "default_config": {
+    "duration": 120,
+    "style": "3d_Pixar",
+    "aspect_ratio": "Khổ dọc (9:16)",
+    "veo_profile": "VEO3 ULTRA",
+    "ai_model": "VEO3 ULTRA",
+    "outputs_per_prompt": 1
+  },
+  "max_concurrent": 2,
+  "videos": [
+    {
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "name": "Sample_Video_1"
+    },
+    {
+      "url": "https://www.tiktok.com/@user/video/1234567890",
+      "name": "Sample_Video_2",
+      "duration": 60,
+      "style": "anime_2d"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=example123",
+      "name": "Sample_Video_3",
+      "duration": 90,
+      "style": "cinematic",
+      "aspect_ratio": "Khổ ngang (16:9)",
+      "outputs_per_prompt": 2
+    }
+  ]
+}
