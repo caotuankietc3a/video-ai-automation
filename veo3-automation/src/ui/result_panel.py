@@ -131,9 +131,9 @@ class ResultPanel(ctk.CTkFrame):
         self.update_prompts([])
         self.update_videos([])
         self.update_logs([])
-        self.update_project_links("", "")
+        self.update_project_links("", "", False)
     
-    def update_project_links(self, gemini_link: str = "", flow_link: str = ""):
+    def update_project_links(self, gemini_link: str = "", flow_link: str = "", has_videos: bool = False):
         import webbrowser
         
         if gemini_link:
@@ -148,11 +148,18 @@ class ResultPanel(ctk.CTkFrame):
             self.gemini_link_label.bind("<Enter>", lambda e, link=gemini_link: self._show_tooltip(e, link))
             self.gemini_link_label.bind("<Leave>", lambda e: self._hide_tooltip())
         else:
-            self.gemini_link_label.configure(
-                text="Gemini: Chưa có",
-                fg_color="gray",
-                cursor=""
-            )
+            if has_videos:
+                self.gemini_link_label.configure(
+                    text="Gemini: Đang tạo",
+                    fg_color="orange",
+                    cursor=""
+                )
+            else:
+                self.gemini_link_label.configure(
+                    text="Gemini: Chưa có",
+                    fg_color="gray",
+                    cursor=""
+                )
             self.gemini_link_label.unbind("<Button-1>")
             self.gemini_link_label.unbind("<Enter>")
             self.gemini_link_label.unbind("<Leave>")
@@ -169,11 +176,18 @@ class ResultPanel(ctk.CTkFrame):
             self.flow_link_label.bind("<Enter>", lambda e, link=flow_link: self._show_tooltip(e, link))
             self.flow_link_label.bind("<Leave>", lambda e: self._hide_tooltip())
         else:
-            self.flow_link_label.configure(
-                text="Flow VEO3: Chưa có",
-                fg_color="gray",
-                cursor=""
-            )
+            if has_videos:
+                self.flow_link_label.configure(
+                    text="Flow VEO3: Đang tạo",
+                    fg_color="orange",
+                    cursor=""
+                )
+            else:
+                self.flow_link_label.configure(
+                    text="Flow VEO3: Chưa có",
+                    fg_color="gray",
+                    cursor=""
+                )
             self.flow_link_label.unbind("<Button-1>")
             self.flow_link_label.unbind("<Enter>")
             self.flow_link_label.unbind("<Leave>")

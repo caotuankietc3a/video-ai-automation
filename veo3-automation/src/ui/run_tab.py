@@ -54,7 +54,9 @@ class RunTab(ctk.CTkFrame):
                 project = project_data.get("project", {})
                 gemini_link = project.get("gemini_project_link", "")
                 flow_link = project.get("project_link", "")
-                self.result_panel.update_project_links(gemini_link, flow_link)
+                videos = project_data.get("videos", [])
+                has_videos = len(videos) > 0 and any(v.get("status") == "SUCCESSFUL" for v in videos)
+                self.result_panel.update_project_links(gemini_link, flow_link, has_videos)
         else:
             self.result_panel.clear_all()
     
@@ -90,6 +92,19 @@ class RunTab(ctk.CTkFrame):
         
         def update_ui_videos(videos):
             self.after(0, lambda: self.result_panel.update_videos(videos))
+            if videos and len(videos) > 0:
+                has_successful_video = any(v.get("status") == "SUCCESSFUL" for v in videos)
+                if has_successful_video:
+                    from ..data.project_manager import project_manager
+                    project_file = project_config.get("file", "")
+                    if project_file:
+                        project = project_manager.load_project(project_file)
+                        if project:
+                            gemini_link = project.get("gemini_project_link", "")
+                            flow_link = project.get("project_link", "")
+                            has_videos = True
+                            self.after(0, lambda gl=gemini_link, fl=flow_link, hv=has_videos: 
+                                      self.result_panel.update_project_links(gl, fl, hv))
         
         def update_ui_logs():
             self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
@@ -225,6 +240,19 @@ class RunTab(ctk.CTkFrame):
         
         def update_ui_videos(videos):
             self.after(0, lambda: self.result_panel.update_videos(videos))
+            if videos and len(videos) > 0:
+                has_successful_video = any(v.get("status") == "SUCCESSFUL" for v in videos)
+                if has_successful_video:
+                    from ..data.project_manager import project_manager
+                    project_file = project_config.get("file", "")
+                    if project_file:
+                        project = project_manager.load_project(project_file)
+                        if project:
+                            gemini_link = project.get("gemini_project_link", "")
+                            flow_link = project.get("project_link", "")
+                            has_videos = True
+                            self.after(0, lambda gl=gemini_link, fl=flow_link, hv=has_videos: 
+                                      self.result_panel.update_project_links(gl, fl, hv))
         
         def update_ui_logs():
             self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
@@ -454,6 +482,19 @@ class RunTab(ctk.CTkFrame):
         
         def update_ui_videos(videos):
             self.after(0, lambda: self.result_panel.update_videos(videos))
+            if videos and len(videos) > 0:
+                has_successful_video = any(v.get("status") == "SUCCESSFUL" for v in videos)
+                if has_successful_video:
+                    from ..data.project_manager import project_manager
+                    project_file = project_config.get("file", "")
+                    if project_file:
+                        project = project_manager.load_project(project_file)
+                        if project:
+                            gemini_link = project.get("gemini_project_link", "")
+                            flow_link = project.get("project_link", "")
+                            has_videos = True
+                            self.after(0, lambda gl=gemini_link, fl=flow_link, hv=has_videos: 
+                                      self.result_panel.update_project_links(gl, fl, hv))
         
         def update_ui_logs():
             self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
@@ -660,7 +701,8 @@ class RunTab(ctk.CTkFrame):
                 
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
-                self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
+                has_videos = len(videos) > 0 and any(v.get("status") == "SUCCESSFUL" for v in videos)
+                self.after(0, lambda gl=gemini_link, fl=flow_link, hv=has_videos: self.result_panel.update_project_links(gl, fl, hv))
                 self.after(0, lambda: self.result_panel.update_videos(videos))
                 self.after(0, lambda: self._on_project_change())
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
