@@ -314,7 +314,13 @@ class Workflow:
         
         self.is_running = True
         try:
-            veo3_prompts = await self.veo3_prompt_generator.generate_prompts(scenes, characters, self.project_name, project_config)
+            def on_prompt_generated(prompts):
+                if "prompts" in self.update_callbacks:
+                    self.update_callbacks["prompts"](prompts)
+                if "logs" in self.update_callbacks:
+                    self.update_callbacks["logs"]()
+            
+            veo3_prompts = await self.veo3_prompt_generator.generate_prompts(scenes, characters, self.project_name, project_config, on_prompt_generated)
             self.logger.info("Đã tạo VEO3 prompts từ scenes")
             
             if "prompts" in self.update_callbacks:
@@ -339,8 +345,14 @@ class Workflow:
         
         self.is_running = True
         try:
+            def on_video_generated(videos):
+                if "videos" in self.update_callbacks:
+                    self.update_callbacks["videos"](videos)
+                if "logs" in self.update_callbacks:
+                    self.update_callbacks["logs"]()
+            
             use_browser = project_config.get("use_browser_automation", True)
-            video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser)
+            video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser, on_video_generated)
             self.logger.info("Đã gọi generate_videos cho VEO3")
             
             if "videos" in self.update_callbacks:

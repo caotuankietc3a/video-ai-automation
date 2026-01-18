@@ -558,20 +558,22 @@ class RunTab(ctk.CTkFrame):
                 self.after(0, lambda: self._on_project_change())
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
-                scenes = None
+                existing_scenes = []
                 if project_data and project_data.get("scenes"):
-                    scenes = project_data["scenes"]
-                    if isinstance(scenes, list) and len(scenes) > 0:
-                        self.logger.info("⏭️ Bước 4/6: Tạo phân cảnh - Đã có sẵn, bỏ qua")
+                    existing_scenes = project_data["scenes"]
+                    if isinstance(existing_scenes, list) and len(existing_scenes) > 0:
+                        self.logger.info(f"⏭️ Bước 4/6: Tạo phân cảnh - Đã có {len(existing_scenes)} scene(s), bỏ qua")
+                        scenes = existing_scenes
                     else:
-                        scenes = None
+                        existing_scenes = []
                 
-                if not scenes:
+                if not existing_scenes or len(existing_scenes) == 0:
                     self.logger.info("🎬 Bước 4/6: Tạo phân cảnh...")
                     self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
-                    scenes = loop.run_until_complete(
+                    new_scenes = loop.run_until_complete(
                         self.workflow.run_step_generate_scenes(full_content, characters, project_config)
                     )
+                    scenes = new_scenes
                     self.logger.info("✓ Hoàn thành tạo phân cảnh")
                     
                     from ..integrations.browser_automation import browser_automation
@@ -588,21 +590,30 @@ class RunTab(ctk.CTkFrame):
                 self.after(0, lambda: self._on_project_change())
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
-                prompts = None
+                existing_prompts = []
                 if project_data and project_data.get("prompts"):
-                    prompts = project_data["prompts"]
-                    if isinstance(prompts, list) and len(prompts) > 0:
-                        self.logger.info("⏭️ Bước 5/6: Tạo prompts VEO3 - Đã có sẵn, bỏ qua")
-                    else:
-                        prompts = None
+                    existing_prompts = project_data["prompts"]
+                    if isinstance(existing_prompts, list) and len(existing_prompts) > 0:
+                        self.logger.info(f"⏭️ Bước 5/6: Tạo prompts VEO3 - Đã có {len(existing_prompts)} prompt(s)")
                 
-                if not prompts:
-                    self.logger.info("✍️ Bước 5/6: Tạo prompts VEO3...")
+                expected_prompts_count = len(scenes) if scenes else 0
+                if not existing_prompts or len(existing_prompts) < expected_prompts_count:
+                    if existing_prompts:
+                        self.logger.info(f"✍️ Bước 5/6: Tiếp tục tạo prompts VEO3 ({len(existing_prompts)}/{expected_prompts_count})...")
+                    else:
+                        self.logger.info("✍️ Bước 5/6: Tạo prompts VEO3...")
                     self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
-                    prompts = loop.run_until_complete(
+                    new_prompts = loop.run_until_complete(
                         self.workflow.run_step_generate_prompts(scenes, characters, project_config)
                     )
-                    self.logger.info("✓ Hoàn thành tạo prompts VEO3")
+                    if existing_prompts and len(existing_prompts) > 0 and len(new_prompts) >= len(existing_prompts):
+                        prompts = new_prompts
+                    else:
+                        prompts = new_prompts
+                    self.logger.info(f"✓ Hoàn thành tạo prompts VEO3 ({len(prompts)}/{expected_prompts_count})")
+                else:
+                    prompts = existing_prompts
+                    self.logger.info(f"⏭️ Bước 5/6: Tạo prompts VEO3 - Đã có đủ {len(prompts)} prompt(s), bỏ qua")
                 
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
@@ -611,25 +622,34 @@ class RunTab(ctk.CTkFrame):
                 self.after(0, lambda: self._on_project_change())
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
-                videos = None
+                existing_videos = []
                 if project_data and project_data.get("videos"):
-                    videos = project_data["videos"]
-                    if isinstance(videos, list) and len(videos) > 0:
-                        all_successful = all(v.get("status") == "SUCCESSFUL" for v in videos if isinstance(v, dict))
-                        if all_successful:
-                            self.logger.info("⏭️ Bước 6/6: Tạo video VEO3 - Đã có sẵn và hoàn thành, bỏ qua")
-                        else:
-                            videos = None
-                    else:
-                        videos = None
+                    existing_videos = project_data["videos"]
+                    if isinstance(existing_videos, list) and len(existing_videos) > 0:
+                        self.logger.info(f"⏭️ Bước 6/6: Tạo video VEO3 - Đã có {len(existing_videos)} video(s)")
                 
-                if not videos:
-                    self.logger.info("🎥 Bước 6/6: Tạo video VEO3...")
+                expected_videos_count = len(prompts) if prompts else 0
+                all_successful = False
+                if existing_videos and len(existing_videos) > 0:
+                    all_successful = all(v.get("status") == "SUCCESSFUL" for v in existing_videos if isinstance(v, dict))
+                    if all_successful and len(existing_videos) >= expected_videos_count:
+                        videos = existing_videos
+                        self.logger.info(f"⏭️ Bước 6/6: Tạo video VEO3 - Đã có đủ {len(videos)} video(s) và hoàn thành, bỏ qua")
+                
+                if not all_successful or len(existing_videos) < expected_videos_count:
+                    if existing_videos:
+                        self.logger.info(f"🎥 Bước 6/6: Tiếp tục tạo video VEO3 ({len(existing_videos)}/{expected_videos_count})...")
+                    else:
+                        self.logger.info("🎥 Bước 6/6: Tạo video VEO3...")
                     self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
-                    videos = loop.run_until_complete(
+                    new_videos = loop.run_until_complete(
                         self.workflow.run_step_generate_videos(prompts, project_config)
                     )
-                    self.logger.info("✓ Hoàn thành tạo video VEO3")
+                    if existing_videos and len(existing_videos) > 0 and len(new_videos) >= len(existing_videos):
+                        videos = new_videos
+                    else:
+                        videos = new_videos
+                    self.logger.info(f"✓ Hoàn thành tạo video VEO3 ({len(videos)}/{expected_videos_count})")
                     
                     from ..integrations.browser_automation import browser_automation
                     try:

@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 from .browser_automation import browser_automation
 from .gemini_client import GeminiClient
 from ..data.config_manager import config_manager
@@ -513,19 +513,9 @@ class VEO3Flow:
             else:
                 print("⚠ Không thể trích xuất video URL")
             
-            video_path = None
-            if is_complete and video_url and video_url.startswith("blob:"):
-                scene_id = f"scene_{project_config.get('current_scene_index', 0)}"
-                print("Đang download video từ blob URL...")
-                video_path = await self._download_videos_from_blob(project_config, scene_id)
-                if video_path:
-                    print(f"✓ Đã download video: {video_path}")
-                else:
-                    print("⚠ Không thể download video từ blob URL")
-            
             return {
                 "video_url": video_url,
-                "video_path": video_path,
+                "video_path": None,
                 "success": is_complete,
                 "project_link": project_config.get("project_link", "")
             }
@@ -614,7 +604,7 @@ class VEO3Flow:
                 "video_path": None
             }
     
-    async def generate_videos(self, prompts: List[str], project_config: Dict[str, Any], use_browser: bool = True) -> List[Dict[str, Any]]:
+    async def generate_videos(self, prompts: List[str], project_config: Dict[str, Any], use_browser: bool = True, on_video_generated: Optional[Callable[[List[Dict[str, Any]]], None]] = None) -> List[Dict[str, Any]]:
         results = []
         
         for i, prompt in enumerate(prompts):
@@ -638,41 +628,69 @@ class VEO3Flow:
                                 project_manager.update_project(project_file, {"project_link": project_link})
                         
                         video_path = video_result.get("video_path")
-                        results.append({
+                        video_data = {
                             "scene_id": scene_id,
                             "prompt": prompt,
                             "status": "SUCCESSFUL" if success and video_url else "FAILED",
                             "video_url": video_url,
                             "video_path": video_path,
                             "project_link": project_link
-                        })
+                        }
+                        results.append(video_data)
+                        
+                        if on_video_generated:
+                            try:
+                                on_video_generated(results.copy())
+                            except Exception as e:
+                                print(f"Lỗi khi gọi callback on_video_generated: {e}")
                     else:
-                        results.append({
+                        video_data = {
                             "scene_id": scene_id,
                             "prompt": prompt,
                             "status": "FAILED",
                             "video_url": None,
                             "video_path": None
-                        })
+                        }
+                        results.append(video_data)
+                        
+                        if on_video_generated:
+                            try:
+                                on_video_generated(results.copy())
+                            except Exception as e:
+                                print(f"Lỗi khi gọi callback on_video_generated: {e}")
                 else:
                     video_url = await self.generate_video_via_api(prompt, project_config)
-                results.append({
-                    "scene_id": scene_id,
-                    "prompt": prompt,
-                    "status": "SUCCESSFUL" if video_url else "FAILED",
-                    "video_url": video_url,
-                    "video_path": None
-                })
+                    video_data = {
+                        "scene_id": scene_id,
+                        "prompt": prompt,
+                        "status": "SUCCESSFUL" if video_url else "FAILED",
+                        "video_url": video_url,
+                        "video_path": None
+                    }
+                    results.append(video_data)
+                    
+                    if on_video_generated:
+                        try:
+                            on_video_generated(results.copy())
+                        except Exception as e:
+                            print(f"Lỗi khi gọi callback on_video_generated: {e}")
                 
             except Exception as e:
-                results.append({
+                video_data = {
                     "scene_id": scene_id,
                     "prompt": prompt,
                     "status": "FAILED",
                     "error": str(e),
                     "video_url": None,
                     "video_path": None
-                })
+                }
+                results.append(video_data)
+                
+                if on_video_generated:
+                    try:
+                        on_video_generated(results.copy())
+                    except Exception as e:
+                        print(f"Lỗi khi gọi callback on_video_generated: {e}")
         
         return results
 

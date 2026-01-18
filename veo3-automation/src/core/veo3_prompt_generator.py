@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 from ..integrations import get_ai_provider, WebContentGenerator
 from ..config.prompts import prompt_templates
 from ..data.config_manager import config_manager
@@ -17,7 +17,8 @@ class VEO3PromptGenerator:
         )
     
     async def generate_prompts(self, scenes: List[Dict[str, Any]], 
-                              characters_json: Dict[str, Any], project_name: Optional[str] = None, project_config: Optional[dict] = None) -> List[str]:
+                              characters_json: Dict[str, Any], project_name: Optional[str] = None, project_config: Optional[dict] = None, 
+                              on_prompt_generated: Optional[Callable[[List[str]], None]] = None) -> List[str]:
         characters_str = json.dumps(characters_json, ensure_ascii=False, indent=2)
         prompts = []
         all_responses = []
@@ -51,7 +52,14 @@ class VEO3PromptGenerator:
                 veo3_prompt = await self.provider.generate_text(prompt)
             
             all_responses.append(veo3_prompt)
-            prompts.append(veo3_prompt.strip())
+            prompt_text = veo3_prompt.strip()
+            prompts.append(prompt_text)
+            
+            if on_prompt_generated:
+                try:
+                    on_prompt_generated(prompts.copy())
+                except Exception as e:
+                    logger.warning(f"Lỗi khi gọi callback on_prompt_generated: {e}")
             
             previous_scene = scene
         
