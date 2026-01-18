@@ -131,7 +131,7 @@ class ResultPanel(ctk.CTkFrame):
         self.update_prompts([])
         self.update_videos([])
         self.update_logs([])
-        self.update_project_links("", "", False)
+        self.update_project_links("", "")
     
     def update_project_links(self, gemini_link: str = "", flow_link: str = "", has_videos: bool = False):
         import webbrowser
