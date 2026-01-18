@@ -11,6 +11,7 @@ OUTPUTS_DIR = os.path.join(DATA_DIR, "outputs")
 LOGS_DIR = os.path.join(DATA_DIR, "logs")
 PROMPTS_DIR = os.path.join(BASE_DIR, "prompts")
 PROMPTS_RESPONSES_DIR = os.path.join(DATA_DIR, "prompts")
+COOKIES_DIR = os.path.join(DATA_DIR, "cookies")
 
 VIDEO_STYLES = [
     "3d_Pixar",

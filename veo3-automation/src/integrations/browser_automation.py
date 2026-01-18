@@ -2,7 +2,12 @@ from playwright.async_api import async_playwright, Browser, Page, BrowserContext
 from typing import Optional, Dict, Any, List
 import asyncio
 import logging
+import platform
+import subprocess
+import json
+import os
 from ..data.config_manager import config_manager
+from ..config.constants import COOKIES_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +19,12 @@ class BrowserAutomation:
         self.page: Optional[Page] = None
         self.headless = config_manager.get("browser_automation.headless", False)
         self.timeout = config_manager.get("browser_automation.timeout", 30000)
-        # Sử dụng Chrome (channel='chrome') nếu được cấu hình, mặc định dùng Chrome
         self.channel: str = config_manager.get("browser_automation.channel", "chrome")
+        self.window_position_x = config_manager.get("browser_automation.window_position_x", 100)
+        self.window_position_y = config_manager.get("browser_automation.window_position_y", 100)
+        self.window_width = config_manager.get("browser_automation.window_width", 1280)
+        self.window_height = config_manager.get("browser_automation.window_height", 720)
+        os.makedirs(COOKIES_DIR, exist_ok=True)
     
     async def start(self):
         if self._is_page_valid():
@@ -27,13 +36,30 @@ class BrowserAutomation:
             pass
         
         playwright = await async_playwright().start()
+        launch_args = []
+        
+        if not self.headless:
+            launch_args.extend([
+                f'--window-position={self.window_position_x},{self.window_position_y}',
+                f'--window-size={self.window_width},{self.window_height}',
+            ])
+        
+        storage_state = self._load_cookies()
+        
         self.browser = await playwright.chromium.launch(
             headless=self.headless,
             channel=self.channel,
+            args=launch_args if launch_args else None,
         )
-        self.context = await self.browser.new_context()
+        self.context = await self.browser.new_context(
+            viewport={'width': self.window_width, 'height': self.window_height} if not self.headless else None,
+            storage_state=storage_state
+        )
         self.page = await self.context.new_page()
         self.page.set_default_timeout(self.timeout)
+        
+        if not self.headless and platform.system() == 'Darwin':
+            await self._set_window_position_mac()
     
     async def stop(self):
         if self.context:
@@ -264,12 +290,21 @@ class BrowserAutomation:
     async def ensure_gemini_login(self) -> None:
         """
         Đảm bảo đã đăng nhập Gemini.
-        Nếu thấy nút 'Sign in' thì tự động login bằng email/password trong config.
+        Sử dụng cookies nếu có, nếu không thì login bằng email/password.
         """
         logger.info("Bắt đầu kiểm tra đăng nhập Gemini...")
         
         if not self.page:
             await self.start()
+
+        gemini_url = config_manager.get("video_analysis.url", "https://gemini.google.com/app")
+        
+        is_logged_in = await self._check_login_status(gemini_url)
+        
+        if is_logged_in:
+            logger.info("✓ Đã đăng nhập Gemini (sử dụng cookies)")
+            await self._save_cookies("google")
+            return
 
         email = config_manager.get("gemini_account.email", "")
         password = config_manager.get("gemini_account.password", "")
@@ -277,9 +312,8 @@ class BrowserAutomation:
             logger.warning("Không có cấu hình email/password cho Gemini, bỏ qua đăng nhập")
             return
 
-        logger.info(f"Đã tìm thấy cấu hình email: {email[:3]}***")
+        logger.info(f"Chưa đăng nhập, bắt đầu login với email: {email[:3]}***")
 
-        # Kiểm tra xem còn nút Sign in không
         try:
             sign_in_link = await self.page.query_selector(
                 'a[aria-label="Sign in"], a[href*="ServiceLogin"]'
@@ -287,7 +321,6 @@ class BrowserAutomation:
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 logger.warning("Page context destroyed during query_selector, restarting browser...")
-                gemini_url = config_manager.get("video_analysis.url", "https://gemini.google.com/app")
                 await self.start()
                 await self.navigate(gemini_url)
                 sign_in_link = await self.page.query_selector(
@@ -298,6 +331,7 @@ class BrowserAutomation:
         
         if not sign_in_link:
             logger.info("Đã đăng nhập Gemini rồi, không cần login lại")
+            await self._save_cookies("google")
             return
 
         logger.info("Tìm thấy nút Sign in, bắt đầu quá trình đăng nhập...")
@@ -324,9 +358,17 @@ class BrowserAutomation:
         logger.info("Đã điền password, đang click Next...")
         await self.page.click('button:has-text("Next")')
 
-        logger.info("Đang chờ hoàn tất đăng nhập (2 giây)...")
-        await self.page.wait_for_timeout(2000)
-        logger.info("Hoàn tất quá trình đăng nhập Gemini, kiểm tra hộp thoại điều khoản...")
+        logger.info("Đang chờ hoàn tất đăng nhập (3 giây)...")
+        await self.page.wait_for_timeout(3000)
+        
+        is_logged_in_after = await self._check_login_status(gemini_url)
+        if is_logged_in_after:
+            logger.info("✓ Đăng nhập Gemini thành công")
+            await self._save_cookies("google")
+        else:
+            logger.warning("⚠ Có thể đăng nhập chưa hoàn tất")
+        
+        logger.info("Kiểm tra hộp thoại điều khoản...")
 
         try:
             agree_button = await self.page.query_selector(
@@ -338,6 +380,8 @@ class BrowserAutomation:
                 logger.info("Tìm thấy nút đồng ý điều khoản, tiến hành click...")
                 await agree_button.click()
                 logger.info("Đã đồng ý điều khoản Gemini thành công")
+                await asyncio.sleep(1)
+                await self._save_cookies("google")
             else:
                 logger.info("Không tìm thấy hộp thoại điều khoản Gemini, bỏ qua bước đồng ý")
         except Exception as e:
@@ -348,7 +392,7 @@ class BrowserAutomation:
 
     async def login_to_google(self) -> None:
         """
-        Đăng nhập vào Google account sử dụng email/password từ config.
+        Đăng nhập vào Google account sử dụng cookies nếu có, nếu không thì dùng email/password.
         Method này có thể tái sử dụng cho các flow khác nhau.
         """
         logger.info("Bắt đầu quá trình đăng nhập Google...")
@@ -358,17 +402,31 @@ class BrowserAutomation:
         if not self.page:
             raise RuntimeError("Browser not started")
         
+        current_url = await self.get_current_url()
+        if current_url and "accounts.google.com" not in current_url:
+            logger.info("Không phải trang đăng nhập Google, bỏ qua")
+            return
+        
+        email_selector = 'input[type="email"][id="identifierId"], input[type="email"][name="identifier"]'
+        try:
+            email_input = await self.page.query_selector(email_selector)
+            if not email_input:
+                logger.info("Không tìm thấy form đăng nhập, có thể đã đăng nhập rồi")
+                await self._save_cookies("google")
+                return
+        except Exception:
+            pass
+        
         email = config_manager.get("gemini_account.email", "")
         password = config_manager.get("gemini_account.password", "")
         if not email or not password:
             logger.warning("Không có cấu hình email/password, bỏ qua đăng nhập")
             return
         
-        logger.info(f"Đang đăng nhập với email: {email[:3]}***")
+        logger.info(f"Chưa đăng nhập, bắt đầu login với email: {email[:3]}***")
         
         try:
             logger.info("Đang chờ form nhập email xuất hiện...")
-            email_selector = 'input[type="email"][id="identifierId"], input[type="email"][name="identifier"]'
             await self.wait_for_selector(email_selector, timeout=self.timeout)
             logger.info("Đã tìm thấy ô nhập email, đang điền email...")
             await self.fill(email_selector, email)
@@ -390,11 +448,127 @@ class BrowserAutomation:
             await self.click(next_button_selector)
             await asyncio.sleep(3)
             
-            logger.info("Hoàn tất quá trình đăng nhập Google")
+            logger.info("✓ Hoàn tất quá trình đăng nhập Google")
+            await self._save_cookies("google")
         except Exception as e:
             logger.error(f"Lỗi khi đăng nhập Google: {e}")
             raise
 
+    def _get_cookies_file_path(self, domain: str = "google") -> str:
+        """Lấy đường dẫn file cookies cho domain"""
+        return os.path.join(COOKIES_DIR, f"{domain}_cookies.json")
+    
+    def _load_cookies(self, domain: str = "google") -> Optional[Dict[str, Any]]:
+        """Load cookies từ file"""
+        cookies_file = self._get_cookies_file_path(domain)
+        if os.path.exists(cookies_file):
+            try:
+                with open(cookies_file, 'r', encoding='utf-8') as f:
+                    storage_state = json.load(f)
+                    logger.info(f"Đã load cookies từ {cookies_file}")
+                    return storage_state
+            except Exception as e:
+                logger.warning(f"Không thể load cookies: {e}")
+        return None
+    
+    async def _save_cookies(self, domain: str = "google") -> bool:
+        """Lưu cookies vào file"""
+        if not self.context:
+            return False
+        
+        try:
+            storage_state = await self.context.storage_state()
+            cookies_file = self._get_cookies_file_path(domain)
+            
+            with open(cookies_file, 'w', encoding='utf-8') as f:
+                json.dump(storage_state, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"Đã lưu cookies vào {cookies_file}")
+            return True
+        except Exception as e:
+            logger.warning(f"Không thể lưu cookies: {e}")
+            return False
+    
+    async def _check_login_status(self, url: str, sign_in_selector: str = 'a[aria-label="Sign in"], a[href*="ServiceLogin"]') -> bool:
+        """Kiểm tra xem đã đăng nhập chưa"""
+        if not self.page:
+            return False
+        
+        try:
+            await self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
+            await asyncio.sleep(2)
+            
+            sign_in_link = await self.page.query_selector(sign_in_selector)
+            is_logged_in = sign_in_link is None
+            
+            if is_logged_in:
+                logger.info("Đã đăng nhập (không tìm thấy nút Sign in)")
+            else:
+                logger.info("Chưa đăng nhập (tìm thấy nút Sign in)")
+            
+            return is_logged_in
+        except Exception as e:
+            logger.warning(f"Lỗi khi kiểm tra trạng thái đăng nhập: {e}")
+            return False
+    
+    async def _set_window_position_mac(self) -> None:
+        """
+        Đặt vị trí cửa sổ browser cố định trên Mac bằng AppleScript
+        """
+        try:
+            await asyncio.sleep(1)
+            
+            app_name = "Google Chrome" if self.channel == "chrome" else "Chromium"
+            
+            applescript = f'''
+            tell application "System Events"
+                tell process "{app_name}"
+                    set frontmost to true
+                    delay 0.2
+                    try
+                        set position of window 1 to {{{self.window_position_x}, {self.window_position_y}}}
+                        set size of window 1 to {{{self.window_width}, {self.window_height}}}
+                    end try
+                end tell
+            end tell
+            '''
+            
+            process = await asyncio.create_subprocess_exec(
+                'osascript', '-e', applescript,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode != 0:
+                logger.warning(f"Lỗi khi đặt vị trí cửa sổ: {stderr.decode() if stderr else 'Unknown error'}")
+            
+            await asyncio.sleep(0.3)
+            
+            applescript_force = f'''
+            tell application "{app_name}"
+                activate
+            end tell
+            tell application "System Events"
+                tell process "{app_name}"
+                    try
+                        set value of attribute "AXPosition" of window 1 to {{{self.window_position_x}, {self.window_position_y}}}
+                        set value of attribute "AXSize" of window 1 to {{{self.window_width}, {self.window_height}}}
+                    end try
+                end tell
+            end tell
+            '''
+            
+            process_force = await asyncio.create_subprocess_exec(
+                'osascript', '-e', applescript_force,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await process_force.communicate()
+            
+        except Exception as e:
+            logger.warning(f"Không thể đặt vị trí cửa sổ trên Mac: {e}")
+    
     async def select_fast_mode(self) -> None:
         """
         Chọn Fast mode trong Gemini sau khi đã đăng nhập.
