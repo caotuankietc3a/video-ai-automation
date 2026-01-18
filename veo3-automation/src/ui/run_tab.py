@@ -109,12 +109,20 @@ class RunTab(ctk.CTkFrame):
         def update_ui_logs():
             self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
         
+        def update_ui_project_links(gemini_link: str, flow_link: str):
+            self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl, True))
+            if flow_link:
+                self.after(0, lambda fl=flow_link: self._update_project_link_entry(fl))
+            if gemini_link:
+                self.after(0, lambda gl=gemini_link: self._update_gemini_link_entry(gl))
+        
         self.workflow.set_update_callbacks(
             on_characters=update_ui_characters,
             on_scenes=update_ui_scenes,
             on_prompts=update_ui_prompts,
             on_videos=update_ui_videos,
-            on_logs=update_ui_logs
+            on_logs=update_ui_logs,
+            on_project_links=update_ui_project_links
         )
         
         self.after(0, lambda: self.project_panel.set_workflow_running(True))
@@ -257,12 +265,20 @@ class RunTab(ctk.CTkFrame):
         def update_ui_logs():
             self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
         
+        def update_ui_project_links(gemini_link: str, flow_link: str):
+            self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl, True))
+            if flow_link:
+                self.after(0, lambda fl=flow_link: self._update_project_link_entry(fl))
+            if gemini_link:
+                self.after(0, lambda gl=gemini_link: self._update_gemini_link_entry(gl))
+        
         self.workflow.set_update_callbacks(
             on_characters=update_ui_characters,
             on_scenes=update_ui_scenes,
             on_prompts=update_ui_prompts,
             on_videos=update_ui_videos,
-            on_logs=update_ui_logs
+            on_logs=update_ui_logs,
+            on_project_links=update_ui_project_links
         )
         
         self.after(0, lambda: self.project_panel.set_workflow_running(True))
@@ -499,12 +515,20 @@ class RunTab(ctk.CTkFrame):
         def update_ui_logs():
             self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
         
+        def update_ui_project_links(gemini_link: str, flow_link: str):
+            self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl, True))
+            if flow_link:
+                self.after(0, lambda fl=flow_link: self._update_project_link_entry(fl))
+            if gemini_link:
+                self.after(0, lambda gl=gemini_link: self._update_gemini_link_entry(gl))
+        
         self.workflow.set_update_callbacks(
             on_characters=update_ui_characters,
             on_scenes=update_ui_scenes,
             on_prompts=update_ui_prompts,
             on_videos=update_ui_videos,
-            on_logs=update_ui_logs
+            on_logs=update_ui_logs,
+            on_project_links=update_ui_project_links
         )
         
         self.after(0, lambda: self.project_panel.set_workflow_running(True))
@@ -728,4 +752,11 @@ class RunTab(ctk.CTkFrame):
         
         thread = threading.Thread(target=run_all_async, daemon=True)
         thread.start()
-
+    
+    def _update_project_link_entry(self, flow_link: str):
+        self.project_panel.project_link_entry.delete(0, "end")
+        self.project_panel.project_link_entry.insert(0, flow_link)
+    
+    def _update_gemini_link_entry(self, gemini_link: str):
+        self.project_panel.gemini_project_link_entry.delete(0, "end")
+        self.project_panel.gemini_project_link_entry.insert(0, gemini_link)
