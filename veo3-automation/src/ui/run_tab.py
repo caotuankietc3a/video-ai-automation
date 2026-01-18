@@ -475,104 +475,174 @@ class RunTab(ctk.CTkFrame):
                 self.logger.info("🚀 Bắt đầu chạy tất cả các bước...")
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
+                project_file = project_config.get("file", "")
+                project_data = data_loader.load_project_data(project_file) if project_file else None
+                
                 script_text: str = project_config.get("script", "")
                 video_analysis_override = project_config.get("video_analysis_override")
                 
-                self.logger.info("📹 Bước 1/6: Phân tích video...")
-                self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
-                
-                if script_text:
-                    self.logger.info("✓ Sử dụng script_text từ project làm VIDEO_ANALYSIS")
+                video_analysis = None
+                if project_data and project_data.get("video_analysis"):
+                    video_analysis = project_data["video_analysis"]
+                    self.logger.info("⏭️ Bước 1/6: Phân tích video - Đã có sẵn, bỏ qua")
+                elif script_text:
                     video_analysis = script_text
+                    self.logger.info("⏭️ Bước 1/6: Phân tích video - Sử dụng script_text từ project")
                 elif video_analysis_override:
-                    self.logger.info("✓ Sử dụng video_analysis_override từ ô Kịch bản/Ý tưởng")
                     video_analysis = video_analysis_override
+                    self.logger.info("⏭️ Bước 1/6: Phân tích video - Sử dụng video_analysis_override")
                 else:
-                    video_analysis, gemini_link = loop.run_until_complete(
+                    self.logger.info("📹 Bước 1/6: Phân tích video...")
+                    self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                    video_analysis = loop.run_until_complete(
                         self.workflow.run_step_analyze_video(self.video_paths, project_config)
                     )
-                    if gemini_link:
-                        project = project_manager.load_project(project_config.get("file", ""))
-                        if project:
-                            project["gemini_video_analysis_link"] = gemini_link
-                            project_manager.save_project(project)
+                    self.logger.info("✓ Hoàn thành phân tích video")
+                    
+                    from ..integrations.browser_automation import browser_automation
+                    try:
+                        loop.run_until_complete(browser_automation.stop())
+                        self.logger.info("✓ Đã tắt browser automation sau phân tích video")
+                    except Exception:
+                        pass
                 
-                self.logger.info("✓ Hoàn thành phân tích video")
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
-                self.logger.info("📝 Bước 2/6: Tạo nội dung...")
-                self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                content = None
+                if project_data and project_data.get("content"):
+                    content = {"full_content": project_data["content"]}
+                    self.logger.info("⏭️ Bước 2/6: Tạo nội dung - Đã có sẵn, bỏ qua")
+                else:
+                    self.logger.info("📝 Bước 2/6: Tạo nội dung...")
+                    self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                    content = loop.run_until_complete(
+                        self.workflow.run_step_generate_content(video_analysis, project_config)
+                    )
+                    self.logger.info("✓ Hoàn thành tạo nội dung")
+                    
+                    from ..integrations.browser_automation import browser_automation
+                    try:
+                        loop.run_until_complete(browser_automation.stop())
+                        self.logger.info("✓ Đã tắt browser automation sau tạo nội dung")
+                    except Exception:
+                        pass
                 
-                content = loop.run_until_complete(
-                    self.workflow.run_step_generate_content(video_analysis, project_config)
-                )
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
                 self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                 self.after(0, lambda: self._on_project_change())
-                
-                self.logger.info("✓ Hoàn thành tạo nội dung")
-                self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
-                
-                self.logger.info("👥 Bước 3/6: Trích xuất nhân vật...")
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
                 full_content = content.get("full_content", "") if isinstance(content, dict) else content
-                characters = loop.run_until_complete(
-                    self.workflow.run_step_extract_characters(full_content, project_config)
-                )
+                
+                characters = None
+                if project_data and project_data.get("characters"):
+                    characters = project_data["characters"]
+                    if isinstance(characters, dict) and len(characters) > 0:
+                        self.logger.info("⏭️ Bước 3/6: Trích xuất nhân vật - Đã có sẵn, bỏ qua")
+                    else:
+                        characters = None
+                
+                if not characters:
+                    self.logger.info("👥 Bước 3/6: Trích xuất nhân vật...")
+                    self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                    characters = loop.run_until_complete(
+                        self.workflow.run_step_extract_characters(full_content, project_config)
+                    )
+                    self.logger.info("✓ Hoàn thành trích xuất nhân vật")
+                
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
                 self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                 self.after(0, lambda: self.result_panel.update_characters(characters))
                 self.after(0, lambda: self._on_project_change())
-                
-                self.logger.info("✓ Hoàn thành trích xuất nhân vật")
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
-                self.logger.info("🎬 Bước 4/6: Tạo phân cảnh...")
-                self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                scenes = None
+                if project_data and project_data.get("scenes"):
+                    scenes = project_data["scenes"]
+                    if isinstance(scenes, list) and len(scenes) > 0:
+                        self.logger.info("⏭️ Bước 4/6: Tạo phân cảnh - Đã có sẵn, bỏ qua")
+                    else:
+                        scenes = None
                 
-                scenes = loop.run_until_complete(
-                    self.workflow.run_step_generate_scenes(full_content, characters, project_config)
-                )
+                if not scenes:
+                    self.logger.info("🎬 Bước 4/6: Tạo phân cảnh...")
+                    self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                    scenes = loop.run_until_complete(
+                        self.workflow.run_step_generate_scenes(full_content, characters, project_config)
+                    )
+                    self.logger.info("✓ Hoàn thành tạo phân cảnh")
+                    
+                    from ..integrations.browser_automation import browser_automation
+                    try:
+                        loop.run_until_complete(browser_automation.stop())
+                        self.logger.info("✓ Đã tắt browser automation sau tạo phân cảnh")
+                    except Exception:
+                        pass
+                
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
                 self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                 self.after(0, lambda: self.result_panel.update_scenes(scenes))
                 self.after(0, lambda: self._on_project_change())
-                
-                self.logger.info("✓ Hoàn thành tạo phân cảnh")
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
-                self.logger.info("✍️ Bước 5/6: Tạo prompts VEO3...")
-                self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                prompts = None
+                if project_data and project_data.get("prompts"):
+                    prompts = project_data["prompts"]
+                    if isinstance(prompts, list) and len(prompts) > 0:
+                        self.logger.info("⏭️ Bước 5/6: Tạo prompts VEO3 - Đã có sẵn, bỏ qua")
+                    else:
+                        prompts = None
                 
-                prompts = loop.run_until_complete(
-                    self.workflow.run_step_generate_prompts(scenes, characters, project_config)
-                )
+                if not prompts:
+                    self.logger.info("✍️ Bước 5/6: Tạo prompts VEO3...")
+                    self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                    prompts = loop.run_until_complete(
+                        self.workflow.run_step_generate_prompts(scenes, characters, project_config)
+                    )
+                    self.logger.info("✓ Hoàn thành tạo prompts VEO3")
+                
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
                 self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                 self.after(0, lambda: self.result_panel.update_prompts(prompts))
                 self.after(0, lambda: self._on_project_change())
-                
-                self.logger.info("✓ Hoàn thành tạo prompts VEO3")
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
-                self.logger.info("🎥 Bước 6/6: Tạo video VEO3...")
-                self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                videos = None
+                if project_data and project_data.get("videos"):
+                    videos = project_data["videos"]
+                    if isinstance(videos, list) and len(videos) > 0:
+                        all_successful = all(v.get("status") == "SUCCESSFUL" for v in videos if isinstance(v, dict))
+                        if all_successful:
+                            self.logger.info("⏭️ Bước 6/6: Tạo video VEO3 - Đã có sẵn và hoàn thành, bỏ qua")
+                        else:
+                            videos = None
+                    else:
+                        videos = None
                 
-                videos = loop.run_until_complete(
-                    self.workflow.run_step_generate_videos(prompts, project_config)
-                )
+                if not videos:
+                    self.logger.info("🎥 Bước 6/6: Tạo video VEO3...")
+                    self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
+                    videos = loop.run_until_complete(
+                        self.workflow.run_step_generate_videos(prompts, project_config)
+                    )
+                    self.logger.info("✓ Hoàn thành tạo video VEO3")
+                    
+                    from ..integrations.browser_automation import browser_automation
+                    try:
+                        loop.run_until_complete(browser_automation.stop())
+                        self.logger.info("✓ Đã tắt browser automation sau tạo video VEO3")
+                    except Exception:
+                        pass
+                
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
                 self.after(0, lambda gl=gemini_link, fl=flow_link: self.result_panel.update_project_links(gl, fl))
                 self.after(0, lambda: self.result_panel.update_videos(videos))
                 self.after(0, lambda: self._on_project_change())
-                
-                self.logger.info("✓ Hoàn thành tạo video VEO3")
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
                 self.logger.info("🎉 Đã hoàn thành tất cả các bước!")
@@ -585,6 +655,12 @@ class RunTab(ctk.CTkFrame):
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 self.after(0, lambda msg=error_msg: messagebox.showerror("Lỗi", f"Chạy tất cả các bước thất bại: {msg}"))
             finally:
+                from ..integrations.browser_automation import browser_automation
+                try:
+                    loop.run_until_complete(browser_automation.stop())
+                    self.logger.info("✓ Đã tắt browser automation trong finally block")
+                except Exception:
+                    pass
                 self.after(0, lambda: self.project_panel.set_workflow_running(False))
                 loop.close()
         

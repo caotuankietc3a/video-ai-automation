@@ -16,7 +16,9 @@ class ContentGenerator:
         )
     
     async def generate_content(self, video_analysis: str, user_script: str = "", project_name: Optional[str] = None, project_config: Optional[dict] = None) -> dict:
-        prompt = prompt_templates.get_video_to_content(video_analysis, user_script)
+        duration = project_config.get("duration", 120) if project_config else 120
+        style = project_config.get("style", "3d_Pixar") if project_config else "3d_Pixar"
+        prompt = prompt_templates.get_video_to_content(video_analysis, user_script, duration, style)
         
         gemini_link = None
         if project_config:
