@@ -1,11 +1,9 @@
 import asyncio
 import os
+import multiprocessing
+from multiprocessing import Process, Queue
 from typing import List, Dict, Optional, Callable
-from dataclasses import dataclass, field
-from .workflow import Workflow
-from ..data.video_manager import video_manager
-from ..data.project_manager import project_manager
-from ..integrations.browser_automation import stop_all_browser_instances
+from dataclasses import dataclass, field, asdict
 from ..utils.logger import Logger
 
 
@@ -19,6 +17,22 @@ class VideoConfig:
     veo_profile: str = "VEO3 ULTRA"
     ai_model: str = "VEO3 ULTRA"
     outputs_per_prompt: int = 1
+    
+    def to_dict(self) -> Dict:
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> "VideoConfig":
+        return cls(
+            url=data.get("url", ""),
+            name=data.get("name", ""),
+            duration=data.get("duration", 120),
+            style=data.get("style", "3d_Pixar"),
+            aspect_ratio=data.get("aspect_ratio", "Khổ dọc (9:16)"),
+            veo_profile=data.get("veo_profile", "VEO3 ULTRA"),
+            ai_model=data.get("ai_model", "VEO3 ULTRA"),
+            outputs_per_prompt=data.get("outputs_per_prompt", 1),
+        )
 
 
 @dataclass
@@ -73,6 +87,114 @@ class VideoResult:
     error: Optional[str] = None
     project_file: Optional[str] = None
     videos_generated: int = 0
+    
+    def to_dict(self) -> Dict:
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> "VideoResult":
+        return cls(
+            name=data.get("name", ""),
+            url=data.get("url", ""),
+            success=data.get("success", False),
+            error=data.get("error"),
+            project_file=data.get("project_file"),
+            videos_generated=data.get("videos_generated", 0),
+        )
+
+
+def _run_worker_process(
+    process_id: int,
+    videos_data: List[Dict],
+    total_videos: int,
+    result_queue: Queue
+):
+    from .workflow import Workflow
+    from ..data.video_manager import video_manager
+    from ..data.project_manager import project_manager
+    
+    print(f"🔧 [Process {process_id}] Khởi động với {len(videos_data)} videos")
+    
+    results = []
+    for video_data in videos_data:
+        video_config = VideoConfig.from_dict(video_data["config"])
+        index = video_data["index"]
+        
+        browser_instance_id = f"process_{process_id}"
+        print(f"📥 [Process {process_id}] [{index}/{total_videos}] Bắt đầu: {video_config.name}")
+        
+        try:
+            video_path = video_manager.download_video_from_url(
+                video_config.url, 
+                video_config.name
+            )
+            
+            if not video_path:
+                raise Exception(f"Không thể tải video từ: {video_config.url}")
+            
+            print(f"✅ [Process {process_id}] [{index}/{total_videos}] Đã tải video: {video_path}")
+            
+            project = project_manager.create_project(video_config.name)
+            project_file = project["file"]
+            
+            project_manager.update_project(project_file, {
+                "name": video_config.name,
+                "style": video_config.style,
+                "duration": video_config.duration,
+                "aspect_ratio": video_config.aspect_ratio,
+                "veo_profile": video_config.veo_profile,
+                "ai_model": video_config.ai_model,
+                "outputs_per_prompt": video_config.outputs_per_prompt,
+            })
+            
+            print(f"📁 [Process {process_id}] [{index}/{total_videos}] Đã tạo project: {project_file}")
+            
+            workflow = Workflow(video_config.name, browser_instance_id=browser_instance_id)
+            
+            project_config_dict = {
+                "name": video_config.name,
+                "file": project_file,
+                "style": video_config.style,
+                "duration": video_config.duration,
+                "aspect_ratio": video_config.aspect_ratio,
+                "veo_profile": video_config.veo_profile,
+                "ai_model": video_config.ai_model,
+                "outputs_per_prompt": video_config.outputs_per_prompt,
+                "use_browser_automation": True,
+            }
+            
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(workflow.run([video_path], project_config_dict))
+            finally:
+                loop.close()
+            
+            videos_count = len(result.get("videos", [])) if result else 0
+            
+            print(f"🎉 [Process {process_id}] [{index}/{total_videos}] Hoàn thành: {video_config.name}")
+            
+            results.append(VideoResult(
+                name=video_config.name,
+                url=video_config.url,
+                success=True,
+                project_file=project_file,
+                videos_generated=videos_count,
+            ).to_dict())
+            
+        except Exception as e:
+            error_msg = str(e)
+            print(f"❌ [Process {process_id}] [{index}/{total_videos}] Lỗi {video_config.name}: {error_msg}")
+            
+            results.append(VideoResult(
+                name=video_config.name,
+                url=video_config.url,
+                success=False,
+                error=error_msg,
+            ).to_dict())
+    
+    print(f"✅ [Process {process_id}] Hoàn thành tất cả {len(videos_data)} videos")
+    result_queue.put(results)
 
 
 class BatchRunner:
@@ -90,15 +212,30 @@ class BatchRunner:
         self.logger.info(message)
         print(message)
     
-    async def run(self) -> List[VideoResult]:
+    def _split_videos_for_processes(self, videos: List[VideoConfig], num_processes: int) -> List[List[Dict]]:
+        chunks: List[List[Dict]] = [[] for _ in range(num_processes)]
+        
+        for i, video in enumerate(videos):
+            process_idx = i % num_processes
+            chunks[process_idx].append({
+                "config": video.to_dict(),
+                "index": i + 1
+            })
+        
+        return chunks
+    
+    def run(self) -> List[VideoResult]:
         total = len(self.config.videos)
+        num_processes = min(self.config.max_concurrent, total)
+        
         self._log(f"🚀 Bắt đầu batch runner với {total} videos")
-        self._log(f"📊 Max concurrent: {self.config.max_concurrent} (mỗi project có browser riêng)")
+        self._log(f"📊 Số processes: {num_processes} (mỗi process có browser riêng)")
         
         if self.dry_run:
             self._log("🔍 DRY RUN MODE - Không thực hiện thay đổi thực tế")
             for i, video in enumerate(self.config.videos, 1):
-                self._log(f"  [{i}/{total}] {video.name}: {video.url}")
+                process_idx = (i - 1) % num_processes
+                self._log(f"  [Process {process_idx}] [{i}/{total}] {video.name}: {video.url}")
                 self._log(f"    - Duration: {video.duration}s")
                 self._log(f"    - Style: {video.style}")
                 self._log(f"    - Aspect Ratio: {video.aspect_ratio}")
@@ -106,112 +243,45 @@ class BatchRunner:
                 self._log(f"    - Outputs per prompt: {video.outputs_per_prompt}")
             return []
         
-        semaphore = asyncio.Semaphore(self.config.max_concurrent)
+        video_chunks = self._split_videos_for_processes(self.config.videos, num_processes)
         
-        tasks = []
-        for i, video_config in enumerate(self.config.videos):
-            task = self._process_video_with_semaphore(video_config, i + 1, total, semaphore, i)
-            tasks.append(task)
+        self._log(f"\n📦 Phân bổ videos cho {num_processes} processes:")
+        for i, chunk in enumerate(video_chunks):
+            video_names = [v["config"]["name"] for v in chunk]
+            self._log(f"  Process {i}: {len(chunk)} videos - {video_names}")
+        self._log("")
         
-        self.results = await asyncio.gather(*tasks)
+        result_queue: Queue = Queue()
+        processes: List[Process] = []
         
-        try:
-            await stop_all_browser_instances()
-        except Exception:
-            pass
+        for i, chunk in enumerate(video_chunks):
+            if len(chunk) == 0:
+                continue
+            
+            p = Process(
+                target=_run_worker_process,
+                args=(i, chunk, total, result_queue)
+            )
+            processes.append(p)
+            p.start()
+            self._log(f"🔧 Đã khởi động Process {i}")
+        
+        for p in processes:
+            p.join()
+        
+        all_results_dicts: List[Dict] = []
+        while not result_queue.empty():
+            results_from_process = result_queue.get()
+            all_results_dicts.extend(results_from_process)
+        
+        self.results = [VideoResult.from_dict(r) for r in all_results_dicts]
         
         self._print_summary()
         
         return self.results
     
-    async def _process_video_with_semaphore(
-        self,
-        video_config: VideoConfig,
-        index: int,
-        total: int,
-        semaphore: asyncio.Semaphore,
-        browser_index: int
-    ) -> VideoResult:
-        async with semaphore:
-            return await self._process_video(video_config, index, total, browser_index)
-    
-    async def _process_video(
-        self, 
-        video_config: VideoConfig, 
-        index: int, 
-        total: int,
-        browser_index: int = 0
-    ) -> VideoResult:
-        browser_instance_id = f"batch_{browser_index}"
-        self._log(f"📥 [{index}/{total}] Bắt đầu xử lý: {video_config.name} (browser: {browser_instance_id})")
-        
-        if self.progress_callback:
-            self.progress_callback(video_config.name, index, total)
-        
-        try:
-            video_path = video_manager.download_video_from_url(
-                video_config.url, 
-                video_config.name
-            )
-            
-            if not video_path:
-                raise Exception(f"Không thể tải video từ: {video_config.url}")
-            
-            self._log(f"✅ [{index}/{total}] Đã tải video: {video_path}")
-            
-            project = project_manager.create_project(video_config.name)
-            project_file = project["file"]
-            
-            project_manager.update_project(project_file, {
-                "name": video_config.name,
-                "style": video_config.style,
-                "duration": video_config.duration,
-                "aspect_ratio": video_config.aspect_ratio,
-                "veo_profile": video_config.veo_profile,
-                "ai_model": video_config.ai_model,
-                "outputs_per_prompt": video_config.outputs_per_prompt,
-            })
-            
-            self._log(f"📁 [{index}/{total}] Đã tạo project: {project_file}")
-            
-            workflow = Workflow(video_config.name, browser_instance_id=browser_instance_id)
-            
-            project_config = {
-                "name": video_config.name,
-                "file": project_file,
-                "style": video_config.style,
-                "duration": video_config.duration,
-                "aspect_ratio": video_config.aspect_ratio,
-                "veo_profile": video_config.veo_profile,
-                "ai_model": video_config.ai_model,
-                "outputs_per_prompt": video_config.outputs_per_prompt,
-                "use_browser_automation": True,
-            }
-            
-            result = await workflow.run([video_path], project_config)
-            
-            videos_count = len(result.get("videos", [])) if result else 0
-            
-            self._log(f"🎉 [{index}/{total}] Hoàn thành: {video_config.name} - {videos_count} videos")
-            
-            return VideoResult(
-                name=video_config.name,
-                url=video_config.url,
-                success=True,
-                project_file=project_file,
-                videos_generated=videos_count,
-            )
-            
-        except Exception as e:
-            error_msg = str(e)
-            self._log(f"❌ [{index}/{total}] Lỗi {video_config.name}: {error_msg}")
-            
-            return VideoResult(
-                name=video_config.name,
-                url=video_config.url,
-                success=False,
-                error=error_msg,
-            )
+    async def run_async(self) -> List[VideoResult]:
+        return self.run()
     
     def _print_summary(self):
         self._log("\n" + "=" * 60)

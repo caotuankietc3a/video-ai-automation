@@ -3,8 +3,8 @@ import sys
 import os
 import json
 import argparse
-import asyncio
 import logging
+import multiprocessing
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
@@ -34,7 +34,7 @@ def load_config(config_path: str) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Batch Video Runner - Chạy workflow VEO3 cho nhiều videos cùng lúc",
+        description="Batch Video Runner - Chạy workflow VEO3 cho nhiều videos với multiprocessing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ví dụ sử dụng:
@@ -65,6 +65,11 @@ Cấu trúc file JSON config:
     }
   ]
 }
+
+Chế độ Multiprocessing:
+  - Videos được chia đều cho các process
+  - Mỗi process chạy browser riêng biệt
+  - Tránh browser bị đơ do share state
         """
     )
     
@@ -77,7 +82,7 @@ Cấu trúc file JSON config:
         "--max-concurrent", "-m",
         type=int,
         default=None,
-        help="Số lượng video chạy song song (override config file)"
+        help="Số lượng process chạy song song (override config file)"
     )
     
     parser.add_argument(
@@ -98,7 +103,7 @@ Cấu trúc file JSON config:
         logging.getLogger().setLevel(logging.DEBUG)
     
     print("=" * 60)
-    print("🎬 BATCH VIDEO RUNNER - VEO3 Automation")
+    print("🎬 BATCH VIDEO RUNNER - VEO3 Automation (Multiprocessing)")
     print("=" * 60)
     
     config_data = load_config(args.config_file)
@@ -108,9 +113,12 @@ Cấu trúc file JSON config:
     
     batch_config = BatchConfig.from_dict(config_data)
     
+    num_processes = min(batch_config.max_concurrent, len(batch_config.videos))
+    
     print(f"📁 Config file: {args.config_file}")
     print(f"🎥 Số videos: {len(batch_config.videos)}")
-    print(f"⚡ Max concurrent: {batch_config.max_concurrent}")
+    print(f"🔧 Số processes: {num_processes}")
+    print(f"📊 Videos/process: ~{len(batch_config.videos) // num_processes if num_processes > 0 else 0}")
     print(f"🎨 Default style: {batch_config.default_style}")
     print(f"⏱️  Default duration: {batch_config.default_duration}s")
     print(f"📐 Default aspect ratio: {batch_config.default_aspect_ratio}")
@@ -122,11 +130,8 @@ Cấu trúc file JSON config:
     
     runner = BatchRunner(batch_config, dry_run=args.dry_run)
     
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
     try:
-        results = loop.run_until_complete(runner.run())
+        results = runner.run()
         
         if not args.dry_run:
             success_count = sum(1 for r in results if r.success)
@@ -140,11 +145,12 @@ Cấu trúc file JSON config:
         print("\n⏹️ Đã dừng bởi người dùng")
         sys.exit(130)
     except Exception as e:
+        import traceback
         print(f"\n❌ Lỗi không mong đợi: {e}")
+        traceback.print_exc()
         sys.exit(1)
-    finally:
-        loop.close()
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn', force=True)
     main()
