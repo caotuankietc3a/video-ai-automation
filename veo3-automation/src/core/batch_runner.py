@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from .workflow import Workflow
 from ..data.video_manager import video_manager
 from ..data.project_manager import project_manager
+from ..integrations.browser_automation import stop_all_browser_instances
 from ..utils.logger import Logger
 
 
@@ -50,9 +51,11 @@ class BatchConfig:
             )
             videos.append(video)
         
+        max_concurrent = data.get("max_concurrent", 2)
+        
         return cls(
             videos=videos,
-            max_concurrent=data.get("max_concurrent", 2),
+            max_concurrent=max_concurrent,
             default_duration=default_config.get("duration", 120),
             default_style=default_config.get("style", "3d_Pixar"),
             default_aspect_ratio=default_config.get("aspect_ratio", "Khổ dọc (9:16)"),
@@ -90,7 +93,7 @@ class BatchRunner:
     async def run(self) -> List[VideoResult]:
         total = len(self.config.videos)
         self._log(f"🚀 Bắt đầu batch runner với {total} videos")
-        self._log(f"📊 Max concurrent: {self.config.max_concurrent}")
+        self._log(f"📊 Max concurrent: {self.config.max_concurrent} (mỗi project có browser riêng)")
         
         if self.dry_run:
             self._log("🔍 DRY RUN MODE - Không thực hiện thay đổi thực tế")
@@ -107,92 +110,108 @@ class BatchRunner:
         
         tasks = []
         for i, video_config in enumerate(self.config.videos):
-            task = self._process_video(video_config, i + 1, total, semaphore)
+            task = self._process_video_with_semaphore(video_config, i + 1, total, semaphore, i)
             tasks.append(task)
         
         self.results = await asyncio.gather(*tasks)
         
+        try:
+            await stop_all_browser_instances()
+        except Exception:
+            pass
+        
         self._print_summary()
         
         return self.results
+    
+    async def _process_video_with_semaphore(
+        self,
+        video_config: VideoConfig,
+        index: int,
+        total: int,
+        semaphore: asyncio.Semaphore,
+        browser_index: int
+    ) -> VideoResult:
+        async with semaphore:
+            return await self._process_video(video_config, index, total, browser_index)
     
     async def _process_video(
         self, 
         video_config: VideoConfig, 
         index: int, 
         total: int,
-        semaphore: asyncio.Semaphore
+        browser_index: int = 0
     ) -> VideoResult:
-        async with semaphore:
-            self._log(f"📥 [{index}/{total}] Bắt đầu xử lý: {video_config.name}")
+        browser_instance_id = f"batch_{browser_index}"
+        self._log(f"📥 [{index}/{total}] Bắt đầu xử lý: {video_config.name} (browser: {browser_instance_id})")
+        
+        if self.progress_callback:
+            self.progress_callback(video_config.name, index, total)
+        
+        try:
+            video_path = video_manager.download_video_from_url(
+                video_config.url, 
+                video_config.name
+            )
             
-            if self.progress_callback:
-                self.progress_callback(video_config.name, index, total)
+            if not video_path:
+                raise Exception(f"Không thể tải video từ: {video_config.url}")
             
-            try:
-                video_path = video_manager.download_video_from_url(
-                    video_config.url, 
-                    video_config.name
-                )
-                
-                if not video_path:
-                    raise Exception(f"Không thể tải video từ: {video_config.url}")
-                
-                self._log(f"✅ [{index}/{total}] Đã tải video: {video_path}")
-                
-                project = project_manager.create_project(video_config.name)
-                project_file = project["file"]
-                
-                project_manager.update_project(project_file, {
-                    "name": video_config.name,
-                    "style": video_config.style,
-                    "duration": video_config.duration,
-                    "aspect_ratio": video_config.aspect_ratio,
-                    "veo_profile": video_config.veo_profile,
-                    "ai_model": video_config.ai_model,
-                    "outputs_per_prompt": video_config.outputs_per_prompt,
-                })
-                
-                self._log(f"📁 [{index}/{total}] Đã tạo project: {project_file}")
-                
-                workflow = Workflow(video_config.name)
-                
-                project_config = {
-                    "name": video_config.name,
-                    "file": project_file,
-                    "style": video_config.style,
-                    "duration": video_config.duration,
-                    "aspect_ratio": video_config.aspect_ratio,
-                    "veo_profile": video_config.veo_profile,
-                    "ai_model": video_config.ai_model,
-                    "outputs_per_prompt": video_config.outputs_per_prompt,
-                    "use_browser_automation": True,
-                }
-                
-                result = await workflow.run([video_path], project_config)
-                
-                videos_count = len(result.get("videos", [])) if result else 0
-                
-                self._log(f"🎉 [{index}/{total}] Hoàn thành: {video_config.name} - {videos_count} videos")
-                
-                return VideoResult(
-                    name=video_config.name,
-                    url=video_config.url,
-                    success=True,
-                    project_file=project_file,
-                    videos_generated=videos_count,
-                )
-                
-            except Exception as e:
-                error_msg = str(e)
-                self._log(f"❌ [{index}/{total}] Lỗi {video_config.name}: {error_msg}")
-                
-                return VideoResult(
-                    name=video_config.name,
-                    url=video_config.url,
-                    success=False,
-                    error=error_msg,
-                )
+            self._log(f"✅ [{index}/{total}] Đã tải video: {video_path}")
+            
+            project = project_manager.create_project(video_config.name)
+            project_file = project["file"]
+            
+            project_manager.update_project(project_file, {
+                "name": video_config.name,
+                "style": video_config.style,
+                "duration": video_config.duration,
+                "aspect_ratio": video_config.aspect_ratio,
+                "veo_profile": video_config.veo_profile,
+                "ai_model": video_config.ai_model,
+                "outputs_per_prompt": video_config.outputs_per_prompt,
+            })
+            
+            self._log(f"📁 [{index}/{total}] Đã tạo project: {project_file}")
+            
+            workflow = Workflow(video_config.name, browser_instance_id=browser_instance_id)
+            
+            project_config = {
+                "name": video_config.name,
+                "file": project_file,
+                "style": video_config.style,
+                "duration": video_config.duration,
+                "aspect_ratio": video_config.aspect_ratio,
+                "veo_profile": video_config.veo_profile,
+                "ai_model": video_config.ai_model,
+                "outputs_per_prompt": video_config.outputs_per_prompt,
+                "use_browser_automation": True,
+            }
+            
+            result = await workflow.run([video_path], project_config)
+            
+            videos_count = len(result.get("videos", [])) if result else 0
+            
+            self._log(f"🎉 [{index}/{total}] Hoàn thành: {video_config.name} - {videos_count} videos")
+            
+            return VideoResult(
+                name=video_config.name,
+                url=video_config.url,
+                success=True,
+                project_file=project_file,
+                videos_generated=videos_count,
+            )
+            
+        except Exception as e:
+            error_msg = str(e)
+            self._log(f"❌ [{index}/{total}] Lỗi {video_config.name}: {error_msg}")
+            
+            return VideoResult(
+                name=video_config.name,
+                url=video_config.url,
+                success=False,
+                error=error_msg,
+            )
     
     def _print_summary(self):
         self._log("\n" + "=" * 60)

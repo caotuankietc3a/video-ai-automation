@@ -1,12 +1,15 @@
 import asyncio
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from ..integrations import get_ai_provider
 from ..data.video_manager import video_manager
 from ..config.prompts import prompt_templates
 from ..data.config_manager import config_manager
-from ..integrations.browser_automation import browser_automation
+from ..integrations.browser_automation import browser_automation, BrowserAutomation
+
+if TYPE_CHECKING:
+    from ..integrations.browser_automation import BrowserAutomation
 
 
 logger = logging.getLogger(__name__)
@@ -39,68 +42,66 @@ class VideoAnalyzer:
         analysis = await self.provider.generate_with_images(prompt, all_frames)
         return analysis
 
-    async def _analyze_with_browser(self, video_paths: List[str]) -> Tuple[str, str]:
-        logger.info("Bắt đầu phân tích video qua Gemini Web (browser)...")
+    async def _analyze_with_browser(self, video_paths: List[str], browser: Optional[BrowserAutomation] = None) -> Tuple[str, str]:
+        browser = browser or browser_automation
+        logger.info(f"Bắt đầu phân tích video qua Gemini Web (browser instance: {browser.instance_id})...")
         video_path = video_paths[0]
         logger.info(f"Video đầu vào: {video_path}")
 
-        await browser_automation.start()
+        await browser.start()
         logger.info(f"Đi tới URL Gemini: {self.web_url}")
-        await browser_automation.navigate(self.web_url)
+        await browser.navigate(self.web_url)
         await asyncio.sleep(5)
 
         logger.info("Gọi ensure_gemini_login để đảm bảo đã đăng nhập...")
-        await browser_automation.ensure_gemini_login()
-        await browser_automation.select_fast_mode()
+        await browser.ensure_gemini_login()
+        await browser.select_fast_mode()
 
         logger.info("Mở menu upload của Gemini...")
-        await browser_automation.click('button[aria-label="Open upload file menu"]')
+        await browser.click('button[aria-label="Open upload file menu"]')
         await asyncio.sleep(0.5)
 
         logger.info("Click nút 'Upload files'...")
-        await browser_automation.click(
+        await browser.click(
             'button[data-test-id="local-images-files-uploader-button"]',
         )
         await asyncio.sleep(0.5)
 
         logger.info("Gán file video cho input[type=\"file\"]...")
-        await browser_automation.set_input_files('input[type="file"]', [video_path])
+        await browser.set_input_files('input[type="file"]', [video_path])
 
         logger.info("Lấy prompt VIDEO_ANALYSIS và điền vào ô chat...")
         prompt = prompt_templates.get_video_analysis()
-        await browser_automation.fill(
+        await browser.fill(
             'div.ql-editor.textarea.new-input-ui[contenteditable="true"], textarea, [contenteditable="true"]',
             prompt,
         )
 
         logger.info("Bấm nút gửi để yêu cầu Gemini phân tích video...")
-        await browser_automation.click('button[aria-label="Send message"]')
+        await browser.click('button[aria-label="Send message"]')
 
         logger.info("Chờ Gemini trả lời và lấy kết quả phân tích...")
-        await browser_automation.wait_for_selector(
+        await browser.wait_for_selector(
             '[data-message-content], article, div.markdown, .response',
             timeout=120000,
         )
-        await browser_automation.wait_for_selector(
+        await browser.wait_for_selector(
             '.response-container-footer',
             timeout=60000,
         )
-        analysis = await browser_automation.get_text(
+        analysis = await browser.get_text(
             '[data-message-content], article, div.markdown, .response',
         )
         if not analysis:
             raise RuntimeError("Không lấy được kết quả phân tích video từ web UI")
         logger.info(f"Đã lấy được kết quả phân tích video, độ dài: {len(analysis)} ký tự")
         
-        gemini_link = await browser_automation.get_current_url()
+        gemini_link = await browser.get_current_url()
         logger.info(f"Lưu Gemini link: {gemini_link}")
-        
-        await browser_automation.stop()
-        logger.info("Đã đóng browser sau khi phân tích video")
         
         return analysis.strip(), gemini_link
     
-    async def analyze_videos(self, video_paths: List[str], project_name: Optional[str] = None) -> Tuple[str, Optional[str]]:
+    async def analyze_videos(self, video_paths: List[str], project_name: Optional[str] = None, browser: Optional[BrowserAutomation] = None) -> Tuple[str, Optional[str]]:
         if not video_paths:
             raise ValueError("No video paths provided")
         
@@ -108,7 +109,7 @@ class VideoAnalyzer:
         gemini_link = None
 
         if self.use_browser:
-            analysis, gemini_link = await self._analyze_with_browser(video_paths)
+            analysis, gemini_link = await self._analyze_with_browser(video_paths, browser)
         else:
             analysis = await self._analyze_with_api(video_paths)
         

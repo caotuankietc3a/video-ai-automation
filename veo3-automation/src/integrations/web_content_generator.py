@@ -1,15 +1,19 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from .browser_automation import browser_automation
+from .browser_automation import browser_automation, BrowserAutomation
 from ..data.config_manager import config_manager
+
+if TYPE_CHECKING:
+    from .browser_automation import BrowserAutomation
 
 logger = logging.getLogger(__name__)
 
 
 class WebContentGenerator:
-    def __init__(self, gemini_project_link: Optional[str] = None) -> None:
+    def __init__(self, gemini_project_link: Optional[str] = None, browser: Optional[BrowserAutomation] = None) -> None:
+        self.browser = browser or browser_automation
         if gemini_project_link:
             self.url = gemini_project_link
         else:
@@ -19,10 +23,11 @@ class WebContentGenerator:
             )
 
     async def generate(self, prompt: str, project_config: Optional[dict] = None) -> str:
-        logger.info("Bắt đầu generate content qua Gemini Web")
+        browser = self.browser
+        logger.info(f"Bắt đầu generate content qua Gemini Web (browser instance: {browser.instance_id})")
         logger.debug(f"Prompt length: {len(prompt)} characters")
         
-        await browser_automation.start()
+        await browser.start()
         logger.debug("Browser automation đã khởi động")
         
         gemini_link = None
@@ -37,21 +42,21 @@ class WebContentGenerator:
             logger.info(f"Sử dụng URL mặc định: {url_to_use}")
         
         logger.info(f"Điều hướng đến URL: {url_to_use}")
-        await browser_automation.navigate(url_to_use)
+        await browser.navigate(url_to_use)
 
         logger.info("Đảm bảo đã đăng nhập vào Gemini")
-        await browser_automation.ensure_gemini_login()
+        await browser.ensure_gemini_login()
         logger.info("Chọn chế độ Fast mode")
-        await browser_automation.select_fast_mode()
+        await browser.select_fast_mode()
 
         input_selector = 'textarea, [contenteditable="true"]'
         logger.debug(f"Chờ input selector: {input_selector}")
-        await browser_automation.wait_for_selector(input_selector, timeout=20000)
+        await browser.wait_for_selector(input_selector, timeout=20000)
 
         logger.info("Điền prompt vào input field")
-        await browser_automation.fill(input_selector, "")
+        await browser.fill(input_selector, "")
         await asyncio.sleep(0.2)
-        await browser_automation.fill(input_selector, prompt)
+        await browser.fill(input_selector, prompt)
         logger.debug("Đã điền prompt thành công")
 
         send_selector = (
@@ -64,9 +69,9 @@ class WebContentGenerator:
         try:
             await asyncio.sleep(0.5)
             logger.debug("Chờ button send xuất hiện")
-            await browser_automation.wait_for_selector(send_selector, timeout=10000)
+            await browser.wait_for_selector(send_selector, timeout=10000)
             logger.info("Click button send để gửi message")
-            await browser_automation.click(send_selector)
+            await browser.click(send_selector)
             await asyncio.sleep(0.5)
             logger.debug("Đã gửi message thành công")
         except Exception as e:
@@ -76,14 +81,14 @@ class WebContentGenerator:
         await asyncio.sleep(1)
         
         logger.info("Chờ avatar thinking animation kết thúc...")
-        await browser_automation.wait_for_thinking_to_finish(timeout=120000)
+        await browser.wait_for_thinking_to_finish(timeout=120000)
         logger.debug("Thinking animation đã kết thúc")
         
         response_selector = (
             '[data-message-content], article, div.markdown, .response'
         )
         logger.info("Chờ response từ Gemini xuất hiện (timeout: 120s)")
-        await browser_automation.wait_for_selector(
+        await browser.wait_for_selector(
             response_selector,
             timeout=120000,
         )
@@ -99,7 +104,7 @@ class WebContentGenerator:
         
         while waited < max_wait:
             try:
-                footer_elements = await browser_automation.query_all(footer_selector)
+                footer_elements = await browser.query_all(footer_selector)
                 if len(footer_elements) >= 2:
                     logger.debug(f"Tìm thấy {len(footer_elements)} footer elements, response cuối cùng đã hoàn tất")
                     break
@@ -118,7 +123,7 @@ class WebContentGenerator:
         logger.debug("Response đã hoàn tất")
 
         logger.info("Lấy nội dung response cuối cùng từ web UI")
-        text = await browser_automation.get_text_from_last_element(response_selector)
+        text = await browser.get_text_from_last_element(response_selector)
         if not text:
             logger.error("Không lấy được nội dung từ web UI")
             raise RuntimeError("Không lấy được nội dung từ web UI")
@@ -128,7 +133,7 @@ class WebContentGenerator:
         if project_config and not project_config.get("gemini_project_link"):
             try:
                 logger.debug("Kiểm tra và lưu gemini_project_link")
-                current_url = await browser_automation.get_current_url()
+                current_url = await browser.get_current_url()
                 if current_url and "/app/" in current_url:
                     project_id = current_url.split("/app/")[-1].split("?")[0].split("/")[0]
                     if project_id:
@@ -141,12 +146,6 @@ class WebContentGenerator:
                             logger.info(f"Đã lưu gemini_project_link: {gemini_link}")
             except Exception as e:
                 logger.warning(f"Không thể lưu gemini_project_link: {e}")
-        
-        logger.info("Đóng browser sau khi generate xong")
-        try:
-            await browser_automation.stop()
-        except Exception as e:
-            logger.warning(f"Lỗi khi đóng browser: {e}")
         
         logger.info("Hoàn thành generate content")
         return text.strip()

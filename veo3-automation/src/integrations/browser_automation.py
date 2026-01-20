@@ -1,4 +1,4 @@
-from playwright.async_api import async_playwright, Browser, Page, BrowserContext
+from playwright.async_api import async_playwright, Browser, Page, BrowserContext, Playwright
 from typing import Optional, Dict, Any, List
 import asyncio
 import logging
@@ -11,20 +11,37 @@ from ..config.constants import COOKIES_DIR
 
 logger = logging.getLogger(__name__)
 
+_browser_instances: Dict[str, "BrowserAutomation"] = {}
+_instance_counter = 0
+
 
 class BrowserAutomation:
-    def __init__(self):
+    def __init__(self, instance_id: Optional[str] = None):
+        global _instance_counter
+        if instance_id:
+            self.instance_id = instance_id
+        else:
+            self.instance_id = f"default_{_instance_counter}"
+            _instance_counter += 1
+        
+        self.playwright: Optional[Playwright] = None
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
         self.headless = config_manager.get("browser_automation.headless", False)
         self.timeout = config_manager.get("browser_automation.timeout", 30000)
         self.channel: str = config_manager.get("browser_automation.channel", "chrome")
-        self.window_position_x = config_manager.get("browser_automation.window_position_x", 100)
-        self.window_position_y = config_manager.get("browser_automation.window_position_y", 100)
+        base_x = config_manager.get("browser_automation.window_position_x", 100)
+        base_y = config_manager.get("browser_automation.window_position_y", 100)
         self.window_width = config_manager.get("browser_automation.window_width", 1280)
         self.window_height = config_manager.get("browser_automation.window_height", 720)
+        
+        instance_num = int(self.instance_id.split("_")[-1]) if "_" in self.instance_id else 0
+        self.window_position_x = base_x + (instance_num * (self.window_width + 20))
+        self.window_position_y = base_y
+        
         os.makedirs(COOKIES_DIR, exist_ok=True)
+        logger.info(f"BrowserAutomation instance created: {self.instance_id}")
     
     async def start(self):
         if self._is_page_valid():
@@ -35,7 +52,7 @@ class BrowserAutomation:
         except Exception:
             pass
         
-        playwright = await async_playwright().start()
+        self.playwright = await async_playwright().start()
         launch_args = []
         
         if not self.headless:
@@ -46,7 +63,7 @@ class BrowserAutomation:
         
         storage_state = self._load_cookies()
         
-        self.browser = await playwright.chromium.launch(
+        self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
             channel=self.channel,
             args=launch_args if launch_args else None,
@@ -58,17 +75,23 @@ class BrowserAutomation:
         self.page = await self.context.new_page()
         self.page.set_default_timeout(self.timeout)
         
+        logger.info(f"Browser started for instance: {self.instance_id}")
+        
         if not self.headless and platform.system() == 'Darwin':
             await self._set_window_position_mac()
     
     async def stop(self):
+        logger.info(f"Stopping browser instance: {self.instance_id}")
         if self.context:
             await self.context.close()
         if self.browser:
             await self.browser.close()
+        if self.playwright:
+            await self.playwright.stop()
         self.context = None
         self.browser = None
         self.page = None
+        self.playwright = None
     
     async def navigate(self, url: str):
         if not self._is_page_valid():
@@ -618,5 +641,26 @@ class BrowserAutomation:
                 logger.warning(f"Không thể chọn Fast mode: {e}, tiếp tục với mode mặc định")
 
 
-browser_automation = BrowserAutomation()
+browser_automation = BrowserAutomation(instance_id="global_0")
+
+
+def get_browser_instance(instance_id: str) -> BrowserAutomation:
+    if instance_id not in _browser_instances:
+        _browser_instances[instance_id] = BrowserAutomation(instance_id=instance_id)
+    return _browser_instances[instance_id]
+
+
+async def stop_browser_instance(instance_id: str) -> None:
+    if instance_id in _browser_instances:
+        await _browser_instances[instance_id].stop()
+        del _browser_instances[instance_id]
+
+
+async def stop_all_browser_instances() -> None:
+    for instance_id in list(_browser_instances.keys()):
+        try:
+            await _browser_instances[instance_id].stop()
+        except Exception:
+            pass
+    _browser_instances.clear()
 

@@ -1,42 +1,47 @@
 import asyncio
-from typing import List, Dict, Any, Optional, Callable
-from .browser_automation import browser_automation
+from typing import List, Dict, Any, Optional, Callable, TYPE_CHECKING
+from .browser_automation import browser_automation, BrowserAutomation
 from .gemini_client import GeminiClient
 from ..data.config_manager import config_manager
 
+if TYPE_CHECKING:
+    from .browser_automation import BrowserAutomation
+
 class VEO3Flow:
-    def __init__(self):
+    def __init__(self, browser: Optional[BrowserAutomation] = None):
+        self.browser = browser or browser_automation
         self.gemini_client = GeminiClient()
         self.flow_url = "https://labs.google/fx/tools/flow"
     
     async def _navigate_to_project(self, project_config: Dict[str, Any]) -> bool:
+        browser = self.browser
         project_link = project_config.get("project_link", "")
         is_new_project = False
         
         if project_link:
-            await browser_automation.navigate(project_link)
+            await browser.navigate(project_link)
             await asyncio.sleep(3)
-            await browser_automation.login_to_google()
+            await browser.login_to_google()
             await asyncio.sleep(2)
         else:
             is_new_project = True
-            await browser_automation.navigate(self.flow_url)
+            await browser.navigate(self.flow_url)
             await asyncio.sleep(2)
             
             create_with_flow_selector = 'button:has-text("Create with Flow")'
-            await browser_automation.wait_for_selector(create_with_flow_selector, timeout=60000)
-            await browser_automation.click(create_with_flow_selector)
+            await browser.wait_for_selector(create_with_flow_selector, timeout=60000)
+            await browser.click(create_with_flow_selector)
             await asyncio.sleep(2)
             
-            await browser_automation.login_to_google()
+            await browser.login_to_google()
             await asyncio.sleep(3)
             
             new_project_selector = 'button:has-text("New project")'
-            await browser_automation.wait_for_selector(new_project_selector, timeout=10000)
-            await browser_automation.click(new_project_selector)
+            await browser.wait_for_selector(new_project_selector, timeout=10000)
+            await browser.click(new_project_selector)
             await asyncio.sleep(2)
             
-            current_url = await browser_automation.get_current_url()
+            current_url = await browser.get_current_url()
             if current_url and "/project/" in current_url:
                 project_id = current_url.split("/project/")[-1].split("?")[0]
                 project_link = f"https://labs.google/fx/tools/flow/project/{project_id}"
@@ -55,8 +60,8 @@ class VEO3Flow:
                 'button.sc-da5b7836-6:has-text("Scenebuilder"), '
                 'button.kNmMDQ:has-text("Scenebuilder")'
             )
-            await browser_automation.wait_for_selector(scenebuilder_button_selector, timeout=10000)
-            await browser_automation.click(scenebuilder_button_selector)
+            await self.browser.wait_for_selector(scenebuilder_button_selector, timeout=10000)
+            await self.browser.click(scenebuilder_button_selector)
             await asyncio.sleep(2)
             return True
         except Exception as e:
@@ -72,8 +77,8 @@ class VEO3Flow:
                 'button[aria-label*="Settings"][aria-haspopup="dialog"], '
                 'button:has(i.material-icons-outlined):has-text("Settings")'
             )
-            await browser_automation.wait_for_selector(settings_button_selector, timeout=5000)
-            await browser_automation.click(settings_button_selector)
+            await self.browser.wait_for_selector(settings_button_selector, timeout=5000)
+            await self.browser.click(settings_button_selector)
             await asyncio.sleep(1.5)
 
             outputs_button_selector = (
@@ -82,8 +87,8 @@ class VEO3Flow:
                 'button[role="combobox"]:has(span:has-text("Outputs per prompt")), '
                 'button[type="button"][role="combobox"]:has(div:has-text("Outputs per prompt"))'
             )
-            await browser_automation.wait_for_selector(outputs_button_selector, timeout=10000)
-            await browser_automation.click(outputs_button_selector)
+            await self.browser.wait_for_selector(outputs_button_selector, timeout=10000)
+            await self.browser.click(outputs_button_selector)
             await asyncio.sleep(1.5)
             
             option_value = str(outputs_per_prompt)
@@ -92,12 +97,12 @@ class VEO3Flow:
                 f'div[role="option"]:has-text("{option_value}"), '
                 f'div[role="option"][data-state]:has(span:has-text("{option_value}"))'
             )
-            await browser_automation.wait_for_selector(option_selector, timeout=5000)
-            await browser_automation.click(option_selector)
+            await self.browser.wait_for_selector(option_selector, timeout=5000)
+            await self.browser.click(option_selector)
             await asyncio.sleep(1.5)
             
             try:
-                await browser_automation.evaluate("""
+                await self.browser.evaluate("""
                     () => {
                         const event = new KeyboardEvent('keydown', { 
                             key: 'Escape', 
@@ -127,16 +132,16 @@ class VEO3Flow:
                 'button[aria-label*="Settings"][aria-haspopup="dialog"], '
                 'button:has(i.material-icons-outlined):has-text("Settings")'
             )
-            await browser_automation.wait_for_selector(settings_button_selector, timeout=5000)
-            await browser_automation.click(settings_button_selector)
+            await self.browser.wait_for_selector(settings_button_selector, timeout=5000)
+            await self.browser.click(settings_button_selector)
             await asyncio.sleep(1.5)
             
             aspect_ratio_button_selector = (
                 'button[role="combobox"][aria-controls*="radix"]:has-text("Aspect Ratio"), '
                 'button[role="combobox"]:has(span:has-text("Aspect Ratio"))'
             )
-            await browser_automation.wait_for_selector(aspect_ratio_button_selector, timeout=5000)
-            await browser_automation.click(aspect_ratio_button_selector)
+            await self.browser.wait_for_selector(aspect_ratio_button_selector, timeout=5000)
+            await self.browser.click(aspect_ratio_button_selector)
             await asyncio.sleep(1.5)
             
             if is_portrait:
@@ -152,12 +157,12 @@ class VEO3Flow:
                     'div[role="option"][aria-labelledby*="radix"]:has(span:has-text("Landscape"))'
                 )
             
-            await browser_automation.wait_for_selector(option_selector, timeout=5000)
-            await browser_automation.click(option_selector)
+            await self.browser.wait_for_selector(option_selector, timeout=5000)
+            await self.browser.click(option_selector)
             await asyncio.sleep(1.5)
             
             try:
-                await browser_automation.evaluate("""
+                await self.browser.evaluate("""
                     () => {
                         const event = new KeyboardEvent('keydown', { 
                             key: 'Escape', 
@@ -179,12 +184,12 @@ class VEO3Flow:
     
     async def _fill_prompt_and_generate(self, prompt: str):
         prompt_input_selector = 'textarea[placeholder*="Generate a video"]'
-        await browser_automation.wait_for_selector(prompt_input_selector, timeout=60000)
-        await browser_automation.fill(prompt_input_selector, prompt)
+        await self.browser.wait_for_selector(prompt_input_selector, timeout=60000)
+        await self.browser.fill(prompt_input_selector, prompt)
         await asyncio.sleep(1)
         
         generate_button_selector = 'button:has-text("Generate"), button:has-text("Create"), button[type="submit"]'
-        await browser_automation.click(generate_button_selector)
+        await self.browser.click(generate_button_selector)
         await asyncio.sleep(5)
     
     async def _wait_for_video_completion(self) -> bool:
@@ -193,7 +198,7 @@ class VEO3Flow:
         check_interval = 3
         
         while waited < max_wait:
-            result = await browser_automation.evaluate("""
+            result = await self.browser.evaluate("""
                 () => {
                     const html = document.documentElement.outerHTML;
                     
@@ -242,7 +247,7 @@ class VEO3Flow:
         return False
     
     async def _extract_video_result(self) -> Optional[str]:
-        video_url = await browser_automation.evaluate("""
+        video_url = await self.browser.evaluate("""
             () => {
                 const video = document.querySelector('video, [data-video], .video-result');
                 return video ? video.src || video.getAttribute('src') : null;
@@ -258,7 +263,7 @@ class VEO3Flow:
             print(f"Đang tìm và download {outputs_per_prompt} video(s) từ blob URL...")
             await asyncio.sleep(2)
             
-            video_data = await browser_automation.evaluate("""
+            video_data = await self.browser.evaluate("""
                 (maxCount) => {
                     const videos = Array.from(document.querySelectorAll('video[src^="blob:"]'));
                     const videoData = [];
@@ -297,7 +302,7 @@ class VEO3Flow:
                     
                     print(f"Đang download video {i+1}/{len(video_data)} từ blob URL...")
                     
-                    video_bytes = await browser_automation.evaluate("""
+                    video_bytes = await self.browser.evaluate("""
                         async (blobUrl) => {
                             try {
                                 const response = await fetch(blobUrl);
@@ -342,10 +347,10 @@ class VEO3Flow:
     async def _scroll_to_last_scene(self):
         try:
             slider_thumb_selector = 'span[role="slider"][aria-orientation="horizontal"]'
-            await browser_automation.wait_for_selector(slider_thumb_selector, timeout=60000)
+            await self.browser.wait_for_selector(slider_thumb_selector, timeout=60000)
             await asyncio.sleep(0.5)
             
-            track_info = await browser_automation.evaluate("""
+            track_info = await self.browser.evaluate("""
                 () => {
                     const sliderThumb = document.querySelector('span[role="slider"][aria-orientation="horizontal"]');
                     if (!sliderThumb) return null;
@@ -373,7 +378,7 @@ class VEO3Flow:
             if not track_info:
                 return False
             
-            await browser_automation.evaluate("""
+            await self.browser.evaluate("""
                 () => {
                     const sliderThumb = document.querySelector('span[role="slider"][aria-orientation="horizontal"]');
                     if (!sliderThumb) return false;
@@ -402,7 +407,7 @@ class VEO3Flow:
     
     async def _click_current_video(self):
         try:
-            success = await browser_automation.evaluate("""
+            success = await self.browser.evaluate("""
                 () => {
                     const addClipButton = document.getElementById('PINHOLE_ADD_CLIP_CARD_ID');
                     if (!addClipButton) return false;
@@ -430,9 +435,9 @@ class VEO3Flow:
                 await asyncio.sleep(1)
                 return True
             
-            await browser_automation.wait_for_selector('#PINHOLE_ADD_CLIP_CARD_ID', timeout=10000)
+            await self.browser.wait_for_selector('#PINHOLE_ADD_CLIP_CARD_ID', timeout=10000)
             
-            await browser_automation.evaluate("""
+            await self.browser.evaluate("""
                 () => {
                     const addClipButton = document.getElementById('PINHOLE_ADD_CLIP_CARD_ID');
                     if (!addClipButton) return false;
@@ -467,7 +472,7 @@ class VEO3Flow:
         try:
             if is_first_video:
                 print("[Step 1/6] Khởi động browser...")
-                await browser_automation.start()
+                await self.browser.start()
                 print("[Step 1/6] ✓ Browser đã khởi động")
                 
                 print("[Step 2/6] Điều hướng đến project...")

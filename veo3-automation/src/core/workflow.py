@@ -1,27 +1,50 @@
 import asyncio
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Callable, TypeVar, Coroutine
 from .video_analyzer import VideoAnalyzer
 from .content_generator import ContentGenerator
 from .character_extractor import CharacterExtractor
 from .scene_generator import SceneGenerator
 from .veo3_prompt_generator import VEO3PromptGenerator
-from ..integrations.veo3_flow import veo3_flow
+from ..integrations.veo3_flow import VEO3Flow
+from ..integrations.browser_automation import get_browser_instance, stop_browser_instance, BrowserAutomation
 from ..data.project_manager import project_manager
 from ..data.video_manager import video_manager
 from ..utils.logger import Logger
 
+T = TypeVar('T')
+
+RETRY_DELAY_SECONDS = 3
+MAX_RETRIES = 3
+
+
 class Workflow:
-    def __init__(self, project_name: str):
+    def __init__(self, project_name: str, browser_instance_id: Optional[str] = None):
         self.project_name = project_name
+        self.browser_instance_id = browser_instance_id or f"workflow_{project_name}"
         self.logger = Logger(project_name)
+        
+        self.browser: Optional[BrowserAutomation] = None
+        
         self.video_analyzer = VideoAnalyzer(project_name)
         self.content_generator = ContentGenerator(project_name)
         self.character_extractor = CharacterExtractor(project_name)
         self.scene_generator = SceneGenerator(project_name)
         self.veo3_prompt_generator = VEO3PromptGenerator(project_name)
+        self.veo3_flow: Optional[VEO3Flow] = None
+        
         self.is_running = False
         self.progress_callback: Optional[Callable[[str, float], None]] = None
         self.update_callbacks: Dict[str, Callable] = {}
+    
+    def _get_browser(self) -> BrowserAutomation:
+        if self.browser is None:
+            self.browser = get_browser_instance(self.browser_instance_id)
+        return self.browser
+    
+    def _get_veo3_flow(self) -> VEO3Flow:
+        if self.veo3_flow is None:
+            self.veo3_flow = VEO3Flow(browser=self._get_browser())
+        return self.veo3_flow
     
     def set_progress_callback(self, callback: Callable[[str, float], None]):
         self.progress_callback = callback
@@ -50,6 +73,39 @@ class Workflow:
         if self.progress_callback:
             self.progress_callback(message, progress)
     
+    async def _retry_step(
+        self,
+        step_name: str,
+        step_func: Callable[[], Coroutine[Any, Any, T]],
+        max_retries: int = MAX_RETRIES,
+        delay_seconds: float = RETRY_DELAY_SECONDS
+    ) -> T:
+        last_error: Optional[Exception] = None
+        
+        for attempt in range(1, max_retries + 1):
+            try:
+                return await step_func()
+            except Exception as e:
+                last_error = e
+                self.logger.warning(
+                    f"[{step_name}] Lỗi lần {attempt}/{max_retries}: {str(e)}"
+                )
+                
+                if attempt < max_retries:
+                    self.logger.info(f"[{step_name}] Retry sau {delay_seconds}s...")
+                    await asyncio.sleep(delay_seconds)
+                    
+                    try:
+                        if self.browser:
+                            await self.browser.stop()
+                            self.browser = None
+                    except Exception:
+                        pass
+                else:
+                    self.logger.error(f"[{step_name}] Đã thử {max_retries} lần, vẫn thất bại")
+        
+        raise last_error if last_error else RuntimeError(f"Step {step_name} failed")
+    
     async def run(self, video_paths: List[str], project_config: Dict[str, Any]):
         if self.is_running:
             raise RuntimeError("Workflow is already running")
@@ -68,6 +124,8 @@ class Workflow:
         try:
             script_text: str = project_config.get("script", "")
             video_analysis_override = project_config.get("video_analysis_override")
+            gemini_link = None
+            
             if script_text:
                 self.logger.info(
                     "Dùng script_text từ project làm VIDEO_ANALYSIS",
@@ -85,7 +143,15 @@ class Workflow:
                     "Không có sẵn VIDEO_ANALYSIS, bắt đầu phân tích video tự động",
                     {"video_paths": video_paths},
                 )
-                video_analysis, gemini_link = await self.video_analyzer.analyze_videos(video_paths, self.project_name)
+                
+                async def _analyze_video():
+                    return await self.video_analyzer.analyze_videos(
+                        video_paths, self.project_name, browser=self._get_browser()
+                    )
+                
+                video_analysis, gemini_link = await self._retry_step(
+                    "Video Analysis", _analyze_video
+                )
                 self.logger.info(
                     "Hoàn thành phân tích video",
                     {"analysis_length": len(video_analysis), "gemini_link": gemini_link},
@@ -99,7 +165,13 @@ class Workflow:
                         self.logger.info(f"Đã lưu Gemini link vào project: {gemini_link}")
             
             user_script = project_config.get("script", "")
-            content = await self.content_generator.generate_content(video_analysis, user_script, self.project_name)
+            
+            async def _generate_content():
+                return await self.content_generator.generate_content(
+                    video_analysis, user_script, self.project_name, project_config, browser=self._get_browser()
+                )
+            
+            content = await self._retry_step("Content Generation", _generate_content)
             self.logger.info(
                 "Đã tạo nội dung từ VIDEO_ANALYSIS",
                 {
@@ -110,7 +182,12 @@ class Workflow:
                 },
             )
             
-            characters = await self.character_extractor.extract_characters(content["full_content"], self.project_name, project_config)
+            async def _extract_characters():
+                return await self.character_extractor.extract_characters(
+                    content["full_content"], self.project_name, project_config, browser=self._get_browser()
+                )
+            
+            characters = await self._retry_step("Character Extraction", _extract_characters)
             self.logger.info(
                 "Đã trích xuất nhân vật",
                 {"num_characters": len(characters) if isinstance(characters, dict) else None},
@@ -120,12 +197,16 @@ class Workflow:
             if "logs" in self.update_callbacks:
                 self.update_callbacks["logs"]()
             
-            scenes = await self.scene_generator.generate_scenes(
-                content["full_content"], 
-                characters,
-                self.project_name,
-                project_config
-            )
+            async def _generate_scenes():
+                return await self.scene_generator.generate_scenes(
+                    content["full_content"], 
+                    characters,
+                    self.project_name,
+                    project_config,
+                    browser=self._get_browser()
+                )
+            
+            scenes = await self._retry_step("Scene Generation", _generate_scenes)
             self.logger.info(
                 "Đã tạo scenes từ nội dung và nhân vật",
                 {"num_scenes": len(scenes)},
@@ -135,7 +216,12 @@ class Workflow:
             if "logs" in self.update_callbacks:
                 self.update_callbacks["logs"]()
             
-            veo3_prompts = await self.veo3_prompt_generator.generate_prompts(scenes, characters, self.project_name)
+            async def _generate_prompts():
+                return await self.veo3_prompt_generator.generate_prompts(
+                    scenes, characters, self.project_name, project_config, browser=self._get_browser()
+                )
+            
+            veo3_prompts = await self._retry_step("VEO3 Prompt Generation", _generate_prompts)
             self.logger.info(
                 "Đã tạo VEO3 prompts từ scenes",
                 {"num_prompts": len(veo3_prompts)},
@@ -146,7 +232,11 @@ class Workflow:
                 self.update_callbacks["logs"]()
             
             use_browser = project_config.get("use_browser_automation", True)
-            video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser)
+            
+            async def _generate_videos():
+                return await self._get_veo3_flow().generate_videos(veo3_prompts, project_config, use_browser)
+            
+            video_results = await self._retry_step("Video Generation", _generate_videos)
             self.logger.info(
                 "Đã gọi generate_videos cho VEO3",
                 {
@@ -180,7 +270,6 @@ class Workflow:
                 "characters": characters,
                 "scenes": scenes,
                 "prompts": veo3_prompts,
-                # "videos": video_results
             }
             
         except Exception as e:
@@ -188,9 +277,9 @@ class Workflow:
             raise
         finally:
             self.is_running = False
-            from ..integrations.browser_automation import browser_automation
             try:
-                await browser_automation.stop()
+                await stop_browser_instance(self.browser_instance_id)
+                self.browser = None
             except Exception:
                 pass
     
@@ -365,7 +454,7 @@ class Workflow:
                     self.update_callbacks["logs"]()
             
             use_browser = project_config.get("use_browser_automation", True)
-            video_results = await veo3_flow.generate_videos(veo3_prompts, project_config, use_browser, on_video_generated, on_project_link_updated)
+            video_results = await self._get_veo3_flow().generate_videos(veo3_prompts, project_config, use_browser, on_video_generated, on_project_link_updated)
             self.logger.info("Đã gọi generate_videos cho VEO3")
             
             if "videos" in self.update_callbacks:
@@ -383,9 +472,9 @@ class Workflow:
             return video_results
         finally:
             self.is_running = False
-            from ..integrations.browser_automation import browser_automation
             try:
-                await browser_automation.stop()
+                await stop_browser_instance(self.browser_instance_id)
+                self.browser = None
             except Exception:
                 pass
 

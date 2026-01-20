@@ -1,9 +1,12 @@
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from ..integrations import get_ai_provider, WebContentGenerator
 from ..config.prompts import prompt_templates
 from ..data.config_manager import config_manager
 from ..utils.json_utils import extract_json_from_text, validate_character_json
+
+if TYPE_CHECKING:
+    from ..integrations.browser_automation import BrowserAutomation
 
 class CharacterExtractor:
     def __init__(self, project_name: str = "default"):
@@ -14,7 +17,7 @@ class CharacterExtractor:
             config_manager.get("character_extraction.use_browser", True),
         )
     
-    async def extract_characters(self, content: str, project_name: Optional[str] = None, project_config: Optional[dict] = None) -> Dict[str, Any]:
+    async def extract_characters(self, content: str, project_name: Optional[str] = None, project_config: Optional[dict] = None, browser: Optional["BrowserAutomation"] = None) -> Dict[str, Any]:
         prompt = prompt_templates.get_content_to_character(content)
         
         gemini_link = None
@@ -22,7 +25,7 @@ class CharacterExtractor:
             gemini_link = project_config.get("gemini_project_link") or project_config.get("gemini_video_analysis_link")
         
         if self.use_browser:
-            web_client = WebContentGenerator(gemini_project_link=gemini_link)
+            web_client = WebContentGenerator(gemini_project_link=gemini_link, browser=browser)
             response_text = await web_client.generate(prompt, project_config)
         else:
             if not self.provider.is_available():

@@ -1,9 +1,12 @@
 import json
 import logging
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Callable, TYPE_CHECKING
 from ..integrations import get_ai_provider, WebContentGenerator
 from ..config.prompts import prompt_templates
 from ..data.config_manager import config_manager
+
+if TYPE_CHECKING:
+    from ..integrations.browser_automation import BrowserAutomation
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +21,7 @@ class VEO3PromptGenerator:
     
     async def generate_prompts(self, scenes: List[Dict[str, Any]], 
                               characters_json: Dict[str, Any], project_name: Optional[str] = None, project_config: Optional[dict] = None, 
-                              on_prompt_generated: Optional[Callable[[List[str]], None]] = None) -> List[str]:
+                              on_prompt_generated: Optional[Callable[[List[str]], None]] = None, browser: Optional["BrowserAutomation"] = None) -> List[str]:
         characters_str = json.dumps(characters_json, ensure_ascii=False, indent=2)
         prompts = []
         all_responses = []
@@ -44,7 +47,7 @@ class VEO3PromptGenerator:
             logger.info(f"Đang tạo VEO3 prompt cho scene {i}/{len(scenes)}...")
             
             if self.use_browser:
-                web_client = WebContentGenerator(gemini_project_link=gemini_link)
+                web_client = WebContentGenerator(gemini_project_link=gemini_link, browser=browser)
                 veo3_prompt = await web_client.generate(prompt, project_config)
             else:
                 if not self.provider.is_available():

@@ -1,9 +1,12 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from ..integrations import WebContentGenerator, get_ai_provider
 from ..config.prompts import prompt_templates
 from ..data.config_manager import config_manager
 from ..utils.json_utils import parse_content_sections
+
+if TYPE_CHECKING:
+    from ..integrations.browser_automation import BrowserAutomation
 
 
 class ContentGenerator:
@@ -15,7 +18,7 @@ class ContentGenerator:
             config_manager.get("content_generation.use_browser", True),
         )
     
-    async def generate_content(self, video_analysis: str, user_script: str = "", project_name: Optional[str] = None, project_config: Optional[dict] = None) -> dict:
+    async def generate_content(self, video_analysis: str, user_script: str = "", project_name: Optional[str] = None, project_config: Optional[dict] = None, browser: Optional["BrowserAutomation"] = None) -> dict:
         duration = project_config.get("duration", 120) if project_config else 120
         style = project_config.get("style", "3d_Pixar") if project_config else "3d_Pixar"
         prompt = prompt_templates.get_video_to_content(video_analysis, user_script, duration, style)
@@ -25,7 +28,7 @@ class ContentGenerator:
             gemini_link = project_config.get("gemini_project_link") or project_config.get("gemini_video_analysis_link")
         
         if self.use_browser:
-            web_client = WebContentGenerator(gemini_project_link=gemini_link)
+            web_client = WebContentGenerator(gemini_project_link=gemini_link, browser=browser)
             content_text = await web_client.generate(prompt, project_config)
         else:
             if not self.provider.is_available():
