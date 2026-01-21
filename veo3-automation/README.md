@@ -70,6 +70,7 @@ venv\Scripts\activate
 
 ```bash
 pip install -r requirements.txt
+pip install "yt-dlp[default,curl-cffi]"
 ```
 
 ### 4. Cài đặt Playwright browsers
