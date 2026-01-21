@@ -706,21 +706,21 @@ class VEO3Flow:
                     except Exception as e:
                         print(f"Lỗi khi gọi callback on_video_generated: {e}")
         
-        if use_browser and len(results) > 0:
-            last_result = results[-1]
-            if last_result.get("status") == "SUCCESSFUL":
-                print(f"\n📥 Đang download video scene cuối cùng...")
-                last_scene_id = last_result.get("scene_id", f"scene_{len(results)}")
-                video_path = await self._download_videos_from_blob(project_config, last_scene_id)
-                if video_path:
-                    results[-1]["video_path"] = video_path
-                    print(f"✅ Đã download video scene cuối: {video_path}")
-                    
-                    if on_video_generated:
-                        try:
-                            on_video_generated(results.copy())
-                        except Exception as e:
-                            print(f"Lỗi khi gọi callback: {e}")
+        # if use_browser and len(results) > 0:
+        #     last_result = results[-1]
+        #     if last_result.get("status") == "SUCCESSFUL":
+        #         print(f"\n📥 Đang download video scene cuối cùng...")
+        #         last_scene_id = last_result.get("scene_id", f"scene_{len(results)}")
+        #         video_path = await self._download_videos_from_blob(project_config, last_scene_id)
+        #         if video_path:
+        #             results[-1]["video_path"] = video_path
+        #             print(f"✅ Đã download video scene cuối: {video_path}")
+        #             
+        #             if on_video_generated:
+        #                 try:
+        #                     on_video_generated(results.copy())
+        #                 except Exception as e:
+        #                     print(f"Lỗi khi gọi callback: {e}")
         
         return results
 
