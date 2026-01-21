@@ -55,7 +55,7 @@ class WebContentGenerator:
 
         logger.info("Điền prompt vào input field")
         await browser.fill(input_selector, "")
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(1)
         await browser.fill(input_selector, prompt)
         logger.debug("Đã điền prompt thành công")
 
