@@ -102,23 +102,15 @@ class VideoManager:
                         }
                     },
                     'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                         'Referer': 'https://www.tiktok.com/',
                     },
                 })
-                
-                try:
-                    ydl_opts['cookiesfrombrowser'] = ('chrome',)
-                except Exception:
-                    try:
-                        ydl_opts['cookiesfrombrowser'] = ('safari',)
-                    except Exception:
-                        pass
             
             elif platform == 'youtube':
                 ydl_opts.update({
                     'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                     },
                 })
             
