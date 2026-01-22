@@ -193,25 +193,109 @@ def _run_worker_process(
             
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            max_retries = 3
+            retry_count = 0
+            success = False
+            last_error = None
+            
             try:
-                result = loop.run_until_complete(workflow.run([video_path], project_config_dict))
+                while retry_count <= max_retries and not success:
+                    try:
+                        if retry_count > 0:
+                            print(f"🔄 [Process {process_id}] [{index}/{total_videos}] Retry lần {retry_count}/{max_retries} cho {video_config.name}")
+                            try:
+                                from ..integrations.browser_automation import stop_browser_instance
+                                loop.run_until_complete(stop_browser_instance(browser_instance_id))
+                            except Exception as e:
+                                print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Lỗi khi stop browser trước retry: {e}")
+                            loop.run_until_complete(asyncio.sleep(2))
+                            
+                            workflow = Workflow(video_config.name, browser_instance_id=browser_instance_id)
+                        
+                        result = loop.run_until_complete(workflow.run([video_path], project_config_dict))
+                        
+                        project_after = project_manager.load_project(project_file)
+                        if not project_after:
+                            raise Exception(f"Không thể load project sau khi workflow chạy: {project_file}")
+                        
+                        final_step = project_after.get("workflow_step", "unknown")
+                        if final_step != "complete":
+                            raise Exception(f"Workflow chưa hoàn thành, dừng ở step: {final_step}. Cần chạy lại để tiếp tục.")
+                        
+                        videos = project_after.get("videos", [])
+                        failed_videos = [v for v in videos if isinstance(v, dict) and v.get("status") == "FAILED"]
+                        
+                        if failed_videos:
+                            if retry_count < max_retries:
+                                print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Có {len(failed_videos)} video(s) FAILED, đang retry...")
+                                retry_count += 1
+                                try:
+                                    from ..integrations.browser_automation import stop_browser_instance
+                                    loop.run_until_complete(stop_browser_instance(browser_instance_id))
+                                except Exception:
+                                    pass
+                                loop.run_until_complete(asyncio.sleep(2))
+                                workflow = Workflow(video_config.name, browser_instance_id=browser_instance_id)
+                                continue
+                            else:
+                                print(f"❌ [Process {process_id}] [{index}/{total_videos}] Có {len(failed_videos)} video(s) FAILED sau {max_retries} lần retry")
+                                videos_count = len([v for v in videos if isinstance(v, dict) and v.get("status") == "SUCCESSFUL"])
+                                results.append(VideoResult(
+                                    name=video_config.name,
+                                    url=video_config.url,
+                                    success=False,
+                                    error=f"{len(failed_videos)} video(s) FAILED sau {max_retries} lần retry",
+                                    project_file=project_file,
+                                    videos_generated=videos_count,
+                                ).to_dict())
+                                success = True
+                        else:
+                            videos_count = len(videos)
+                            print(f"🎉 [Process {process_id}] [{index}/{total_videos}] Hoàn thành: {video_config.name} (step: {final_step}, videos: {videos_count})")
+                            
+                            results.append(VideoResult(
+                                name=video_config.name,
+                                url=video_config.url,
+                                success=True,
+                                project_file=project_file,
+                                videos_generated=videos_count,
+                            ).to_dict())
+                            success = True
+                            
+                    except Exception as e:
+                        last_error = e
+                        if retry_count < max_retries:
+                            error_msg = str(e)
+                            print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Lỗi lần {retry_count + 1}: {error_msg}, đang retry...")
+                            retry_count += 1
+                            try:
+                                from ..integrations.browser_automation import stop_browser_instance
+                                loop.run_until_complete(stop_browser_instance(browser_instance_id))
+                            except Exception:
+                                pass
+                            loop.run_until_complete(asyncio.sleep(2))
+                            workflow = Workflow(video_config.name, browser_instance_id=browser_instance_id)
+                        else:
+                            raise
+                
+                if not success and last_error:
+                    raise last_error
+                    
+            except Exception as e:
+                error_msg = str(e)
+                print(f"❌ [Process {process_id}] [{index}/{total_videos}] Lỗi {video_config.name} sau {max_retries} lần retry: {error_msg}")
                 
                 project_after = project_manager.load_project(project_file)
-                if not project_after:
-                    raise Exception(f"Không thể load project sau khi workflow chạy: {project_file}")
-                
-                final_step = project_after.get("workflow_step", "unknown")
-                if final_step != "complete":
-                    raise Exception(f"Workflow chưa hoàn thành, dừng ở step: {final_step}. Cần chạy lại để tiếp tục.")
-                
-                videos_count = len(project_after.get("videos", [])) if project_after else 0
-                
-                print(f"🎉 [Process {process_id}] [{index}/{total_videos}] Hoàn thành: {video_config.name} (step: {final_step}, videos: {videos_count})")
+                videos_count = 0
+                if project_after:
+                    videos = project_after.get("videos", [])
+                    videos_count = len([v for v in videos if isinstance(v, dict) and v.get("status") == "SUCCESSFUL"])
                 
                 results.append(VideoResult(
                     name=video_config.name,
                     url=video_config.url,
-                    success=True,
+                    success=False,
+                    error=error_msg,
                     project_file=project_file,
                     videos_generated=videos_count,
                 ).to_dict())
