@@ -381,6 +381,13 @@ class Workflow:
                     self.logger.warning("Không tìm thấy videos, bắt đầu lại từ đầu")
                     current_step = "videos"
             
+            final_step = self._get_workflow_step(project_file)
+            if final_step != "complete":
+                error_msg = f"Workflow chưa hoàn thành, dừng ở step: {final_step}"
+                self.logger.error(error_msg)
+                self.is_running = False
+                raise RuntimeError(error_msg)
+            
             self.logger.info("Workflow hoàn thành thành công")
             
             return {
@@ -392,14 +399,26 @@ class Workflow:
             
         except Exception as e:
             self.logger.error("Workflow error", {"error": str(e)})
+            self.is_running = False
+            final_step = self._get_workflow_step(project_file) if project_file else None
+            self.logger.error(f"Workflow dừng ở step: {final_step}, không stop browser để có thể resume sau")
             raise
         finally:
-            self.is_running = False
-            try:
-                await stop_browser_instance(self.browser_instance_id)
-                self.browser = None
-            except Exception:
-                pass
+            final_step = self._get_workflow_step(project_file) if project_file else None
+            self.logger.info(f"Workflow finally block - current step: {final_step}, is_running: {self.is_running}")
+            if final_step == "complete" and not self.is_running:
+                try:
+                    self.logger.info(f"Workflow đã hoàn thành, đang stop browser instance: {self.browser_instance_id}")
+                    await stop_browser_instance(self.browser_instance_id)
+                    self.browser = None
+                    self.logger.info("Đã stop browser sau khi workflow hoàn thành")
+                except Exception as e:
+                    self.logger.warning(f"Lỗi khi stop browser: {e}")
+            else:
+                if final_step != "complete":
+                    self.logger.warning(f"Workflow chưa hoàn thành (step: {final_step}), KHÔNG stop browser để có thể resume sau")
+                if self.is_running:
+                    self.logger.warning(f"Workflow vẫn đang chạy (is_running=True), KHÔNG stop browser")
     
     def stop(self):
         self.is_running = False

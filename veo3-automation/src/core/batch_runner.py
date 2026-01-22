@@ -185,21 +185,36 @@ def _run_worker_process(
             asyncio.set_event_loop(loop)
             try:
                 result = loop.run_until_complete(workflow.run([video_path], project_config_dict))
+                
+                project_after = project_manager.load_project(project_file)
+                if not project_after:
+                    raise Exception(f"Không thể load project sau khi workflow chạy: {project_file}")
+                
+                final_step = project_after.get("workflow_step", "unknown")
+                if final_step != "complete":
+                    raise Exception(f"Workflow chưa hoàn thành, dừng ở step: {final_step}. Cần chạy lại để tiếp tục.")
+                
+                videos_count = len(project_after.get("videos", [])) if project_after else 0
+                
+                print(f"🎉 [Process {process_id}] [{index}/{total_videos}] Hoàn thành: {video_config.name} (step: {final_step}, videos: {videos_count})")
+                
+                results.append(VideoResult(
+                    name=video_config.name,
+                    url=video_config.url,
+                    success=True,
+                    project_file=project_file,
+                    videos_generated=videos_count,
+                ).to_dict())
             finally:
-                loop.close()
-            
-            project_after = project_manager.load_project(project_file)
-            videos_count = len(project_after.get("videos", [])) if project_after else 0
-            
-            print(f"🎉 [Process {process_id}] [{index}/{total_videos}] Hoàn thành: {video_config.name}")
-            
-            results.append(VideoResult(
-                name=video_config.name,
-                url=video_config.url,
-                success=True,
-                project_file=project_file,
-                videos_generated=videos_count,
-            ).to_dict())
+                try:
+                    pending_tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
+                    if pending_tasks:
+                        print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Có {len(pending_tasks)} tasks chưa hoàn thành, đang đợi...")
+                        loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+                except Exception as e:
+                    print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Lỗi khi đợi tasks: {e}")
+                finally:
+                    loop.close()
             
         except Exception as e:
             error_msg = str(e)
