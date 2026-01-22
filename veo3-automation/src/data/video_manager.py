@@ -267,6 +267,16 @@ class VideoManager:
         
         cv2.imwrite(output_path, frame)
         return output_path
+    
+    def get_existing_video(self, project_name: str) -> Optional[str]:
+        project_dir = os.path.join(VIDEOS_DIR, project_name)
+        if not os.path.exists(project_dir):
+            return None
+        
+        video_files = [f for f in os.listdir(project_dir) if f.endswith(('.mp4', '.webm', '.mkv', '.avi', '.mov'))]
+        if video_files:
+            return os.path.join(project_dir, video_files[0])
+        return None
 
 video_manager = VideoManager()
 

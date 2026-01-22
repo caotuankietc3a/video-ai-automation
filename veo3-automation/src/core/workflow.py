@@ -106,163 +106,280 @@ class Workflow:
         
         raise last_error if last_error else RuntimeError(f"Step {step_name} failed")
     
+    def _update_workflow_step(self, project_file: str, step: str):
+        project = project_manager.load_project(project_file)
+        if project:
+            project["workflow_step"] = step
+            project_manager.save_project(project)
+    
+    def _get_workflow_step(self, project_file: str) -> str:
+        project = project_manager.load_project(project_file)
+        if project:
+            return project.get("workflow_step", "start")
+        return "start"
+    
     async def run(self, video_paths: List[str], project_config: Dict[str, Any]):
         if self.is_running:
             raise RuntimeError("Workflow is already running")
         
         self.is_running = True
+        project_file = project_config.get("file", "")
+        current_step = self._get_workflow_step(project_file)
+        
         self.logger.info(
-            "Khởi chạy workflow mới",
+            "Khởi chạy workflow",
             {
                 "num_videos": len(video_paths),
                 "project_name": self.project_name,
                 "duration": project_config.get("duration"),
                 "style": project_config.get("style"),
+                "resume_from_step": current_step,
             },
         )
 
         try:
+            project = project_manager.load_project(project_file) if project_file else None
+            
+            if current_step == "complete":
+                self.logger.info("Workflow đã hoàn thành, không cần chạy lại")
+                return {
+                    "characters": project.get("characters", {}) if project else {},
+                    "scenes": project.get("scenes", []) if project else [],
+                    "prompts": project.get("prompts", []) if project else [],
+                    "videos": project.get("videos", []) if project else [],
+                }
+            
             script_text: str = project_config.get("script", "")
             video_analysis_override = project_config.get("video_analysis_override")
             gemini_link = None
+            video_analysis = None
             
-            if script_text:
-                self.logger.info(
-                    "Dùng script_text từ project làm VIDEO_ANALYSIS",
-                    {"script_length": len(script_text)},
-                )
-                video_analysis = script_text
-            elif video_analysis_override:
-                self.logger.info(
-                    "Dùng video_analysis_override từ ô Kịch bản/Ý tưởng",
-                    {"override_length": len(video_analysis_override)},
-                )
-                video_analysis = video_analysis_override
-            else:
-                self.logger.info(
-                    "Không có sẵn VIDEO_ANALYSIS, bắt đầu phân tích video tự động",
-                    {"video_paths": video_paths},
-                )
-                
-                async def _analyze_video():
-                    return await self.video_analyzer.analyze_videos(
-                        video_paths, self.project_name, browser=self._get_browser()
+            if current_step == "start":
+                if script_text:
+                    self.logger.info(
+                        "Dùng script_text từ project làm VIDEO_ANALYSIS",
+                        {"script_length": len(script_text)},
                     )
-                
-                video_analysis, gemini_link = await self._retry_step(
-                    "Video Analysis", _analyze_video
-                )
-                self.logger.info(
-                    "Hoàn thành phân tích video",
-                    {"analysis_length": len(video_analysis), "gemini_link": gemini_link},
-                )
-                
-                if gemini_link:
-                    project = project_manager.load_project(project_config.get("file", ""))
+                    video_analysis = script_text
                     if project:
+                        project["script"] = script_text
+                        project_manager.save_project(project)
+                    self._update_workflow_step(project_file, "content")
+                elif video_analysis_override:
+                    self.logger.info(
+                        "Dùng video_analysis_override từ ô Kịch bản/Ý tưởng",
+                        {"override_length": len(video_analysis_override)},
+                    )
+                    video_analysis = video_analysis_override
+                    if project:
+                        project["script"] = video_analysis_override
+                        project_manager.save_project(project)
+                    self._update_workflow_step(project_file, "content")
+                elif project and project.get("script"):
+                    self.logger.info("Dùng script từ project đã lưu làm VIDEO_ANALYSIS")
+                    video_analysis = project.get("script")
+                    self._update_workflow_step(project_file, "content")
+                else:
+                    self.logger.info(
+                        "Không có sẵn VIDEO_ANALYSIS, bắt đầu phân tích video tự động",
+                        {"video_paths": video_paths},
+                    )
+                    
+                    async def _analyze_video():
+                        return await self.video_analyzer.analyze_videos(
+                            video_paths, self.project_name, browser=self._get_browser()
+                        )
+                    
+                    video_analysis, gemini_link = await self._retry_step(
+                        "Video Analysis", _analyze_video
+                    )
+                    self.logger.info(
+                        "Hoàn thành phân tích video",
+                        {"analysis_length": len(video_analysis), "gemini_link": gemini_link},
+                    )
+                    
+                    if gemini_link and project:
                         project["gemini_video_analysis_link"] = gemini_link
                         project_manager.save_project(project)
                         self.logger.info(f"Đã lưu Gemini link vào project: {gemini_link}")
+                    
+                    if project:
+                        project["script"] = video_analysis
+                        project_manager.save_project(project)
+                    
+                    self._update_workflow_step(project_file, "content")
+            else:
+                if project and project.get("script"):
+                    video_analysis = project.get("script")
+                    self.logger.info(f"Resume từ step {current_step}, sử dụng video_analysis đã có")
+                else:
+                    self.logger.warning("Không tìm thấy video_analysis, bắt đầu lại từ đầu")
+                    current_step = "start"
             
             user_script = project_config.get("script", "")
+            content = None
             
-            async def _generate_content():
-                return await self.content_generator.generate_content(
-                    video_analysis, user_script, self.project_name, project_config, browser=self._get_browser()
-                )
-            
-            content = await self._retry_step("Content Generation", _generate_content)
-            self.logger.info(
-                "Đã tạo nội dung từ VIDEO_ANALYSIS",
-                {
-                    "full_content_length": len(content.get("full_content", "")),
-                    "has_characters_section": bool(content.get("characters_section")),
-                    "has_story_section": bool(content.get("story_section")),
-                    "has_storyboard_section": bool(content.get("storyboard_section")),
-                },
-            )
-            
-            async def _extract_characters():
-                return await self.character_extractor.extract_characters(
-                    content["full_content"], self.project_name, project_config, browser=self._get_browser()
-                )
-            
-            characters = await self._retry_step("Character Extraction", _extract_characters)
-            self.logger.info(
-                "Đã trích xuất nhân vật",
-                {"num_characters": len(characters) if isinstance(characters, dict) else None},
-            )
-            if "characters" in self.update_callbacks:
-                self.update_callbacks["characters"](characters)
-            if "logs" in self.update_callbacks:
-                self.update_callbacks["logs"]()
-            
-            async def _generate_scenes():
-                return await self.scene_generator.generate_scenes(
-                    content["full_content"], 
-                    characters,
-                    self.project_name,
-                    project_config,
-                    browser=self._get_browser()
-                )
-            
-            scenes = await self._retry_step("Scene Generation", _generate_scenes)
-            self.logger.info(
-                "Đã tạo scenes từ nội dung và nhân vật",
-                {"num_scenes": len(scenes)},
-            )
-            if "scenes" in self.update_callbacks:
-                self.update_callbacks["scenes"](scenes)
-            if "logs" in self.update_callbacks:
-                self.update_callbacks["logs"]()
-            
-            async def _generate_prompts():
-                return await self.veo3_prompt_generator.generate_prompts(
-                    scenes, characters, self.project_name, project_config, browser=self._get_browser()
-                )
-            
-            veo3_prompts = await self._retry_step("VEO3 Prompt Generation", _generate_prompts)
-            self.logger.info(
-                "Đã tạo VEO3 prompts từ scenes",
-                {"num_prompts": len(veo3_prompts)},
-            )
-            if "prompts" in self.update_callbacks:
-                self.update_callbacks["prompts"](veo3_prompts)
-            if "logs" in self.update_callbacks:
-                self.update_callbacks["logs"]()
-            
-            use_browser = project_config.get("use_browser_automation", True)
-            
-            async def _generate_videos():
-                return await self._get_veo3_flow().generate_videos(veo3_prompts, project_config, use_browser)
-            
-            video_results = await self._retry_step("Video Generation", _generate_videos)
-            self.logger.info(
-                "Đã gọi generate_videos cho VEO3",
-                {
-                    "num_requests": len(veo3_prompts),
-                    "use_browser": use_browser,
-                    "num_results": len(video_results),
-                },
-            )
-            
-            project = project_manager.load_project(project_config.get("file", ""))
-            if project:
-                project["characters"] = characters
-                project["scenes"] = scenes
-                project["prompts"] = veo3_prompts
-                project["videos"] = video_results
-                project_manager.save_project(project)
+            if current_step == "content":
+                async def _generate_content():
+                    return await self.content_generator.generate_content(
+                        video_analysis, user_script, self.project_name, project_config, browser=self._get_browser()
+                    )
+                
+                content = await self._retry_step("Content Generation", _generate_content)
                 self.logger.info(
-                    "Đã lưu kết quả workflow vào project",
+                    "Đã tạo nội dung từ VIDEO_ANALYSIS",
                     {
-                        "project_file": project.get("file"),
-                        "num_characters": len(characters) if isinstance(characters, dict) else None,
-                        "num_scenes": len(scenes),
-                        "num_prompts": len(veo3_prompts),
-                        "num_videos": len(video_results),
+                        "full_content_length": len(content.get("full_content", "")),
+                        "has_characters_section": bool(content.get("characters_section")),
+                        "has_story_section": bool(content.get("story_section")),
+                        "has_storyboard_section": bool(content.get("storyboard_section")),
                     },
                 )
+                
+                if project:
+                    project["script"] = content.get("full_content", "") if content else ""
+                    project_manager.save_project(project)
+                
+                self._update_workflow_step(project_file, "characters")
+            else:
+                if project and project.get("script"):
+                    content = {"full_content": project.get("script")}
+                    self.logger.info(f"Resume từ step {current_step}, sử dụng content đã có")
+                else:
+                    self.logger.warning("Không tìm thấy content, bắt đầu lại từ đầu")
+                    current_step = "content"
+            
+            characters = None
+            
+            if current_step == "characters":
+                async def _extract_characters():
+                    return await self.character_extractor.extract_characters(
+                        content["full_content"], self.project_name, project_config, browser=self._get_browser()
+                    )
+                
+                characters = await self._retry_step("Character Extraction", _extract_characters)
+                self.logger.info(
+                    "Đã trích xuất nhân vật",
+                    {"num_characters": len(characters) if isinstance(characters, dict) else None},
+                )
+                if "characters" in self.update_callbacks:
+                    self.update_callbacks["characters"](characters)
+                if "logs" in self.update_callbacks:
+                    self.update_callbacks["logs"]()
+                
+                if project:
+                    project["characters"] = characters
+                    project_manager.save_project(project)
+                
+                self._update_workflow_step(project_file, "scenes")
+            else:
+                if project and project.get("characters"):
+                    characters = project.get("characters")
+                    self.logger.info(f"Resume từ step {current_step}, sử dụng characters đã có")
+                else:
+                    self.logger.warning("Không tìm thấy characters, bắt đầu lại từ đầu")
+                    current_step = "characters"
+            
+            scenes = None
+            
+            if current_step == "scenes":
+                async def _generate_scenes():
+                    return await self.scene_generator.generate_scenes(
+                        content["full_content"], 
+                        characters,
+                        self.project_name,
+                        project_config,
+                        browser=self._get_browser()
+                    )
+                
+                scenes = await self._retry_step("Scene Generation", _generate_scenes)
+                self.logger.info(
+                    "Đã tạo scenes từ nội dung và nhân vật",
+                    {"num_scenes": len(scenes)},
+                )
+                if "scenes" in self.update_callbacks:
+                    self.update_callbacks["scenes"](scenes)
+                if "logs" in self.update_callbacks:
+                    self.update_callbacks["logs"]()
+                
+                if project:
+                    project["scenes"] = scenes
+                    project_manager.save_project(project)
+                
+                self._update_workflow_step(project_file, "prompts")
+            else:
+                if project and project.get("scenes"):
+                    scenes = project.get("scenes")
+                    self.logger.info(f"Resume từ step {current_step}, sử dụng scenes đã có")
+                else:
+                    self.logger.warning("Không tìm thấy scenes, bắt đầu lại từ đầu")
+                    current_step = "scenes"
+            
+            veo3_prompts = None
+            
+            if current_step == "prompts":
+                async def _generate_prompts():
+                    return await self.veo3_prompt_generator.generate_prompts(
+                        scenes, characters, self.project_name, project_config, browser=self._get_browser()
+                    )
+                
+                veo3_prompts = await self._retry_step("VEO3 Prompt Generation", _generate_prompts)
+                self.logger.info(
+                    "Đã tạo VEO3 prompts từ scenes",
+                    {"num_prompts": len(veo3_prompts)},
+                )
+                if "prompts" in self.update_callbacks:
+                    self.update_callbacks["prompts"](veo3_prompts)
+                if "logs" in self.update_callbacks:
+                    self.update_callbacks["logs"]()
+                
+                if project:
+                    project["prompts"] = veo3_prompts
+                    project_manager.save_project(project)
+                
+                self._update_workflow_step(project_file, "videos")
+            else:
+                if project and project.get("prompts"):
+                    veo3_prompts = project.get("prompts")
+                    self.logger.info(f"Resume từ step {current_step}, sử dụng prompts đã có")
+                else:
+                    self.logger.warning("Không tìm thấy prompts, bắt đầu lại từ đầu")
+                    current_step = "prompts"
+            
+            use_browser = project_config.get("use_browser_automation", True)
+            video_results = None
+            
+            if current_step == "videos":
+                async def _generate_videos():
+                    return await self._get_veo3_flow().generate_videos(veo3_prompts, project_config, use_browser)
+                
+                video_results = await self._retry_step("Video Generation", _generate_videos)
+                self.logger.info(
+                    "Đã gọi generate_videos cho VEO3",
+                    {
+                        "num_requests": len(veo3_prompts),
+                        "use_browser": use_browser,
+                        "num_results": len(video_results),
+                    },
+                )
+                
+                if project:
+                    existing_videos = project.get("videos", [])
+                    if isinstance(existing_videos, list) and isinstance(video_results, list):
+                        existing_videos.extend(video_results)
+                        project["videos"] = existing_videos
+                    else:
+                        project["videos"] = video_results
+                    project_manager.save_project(project)
+                
+                self._update_workflow_step(project_file, "complete")
+            else:
+                if project and project.get("videos"):
+                    video_results = project.get("videos")
+                    self.logger.info(f"Resume từ step {current_step}, sử dụng videos đã có")
+                else:
+                    self.logger.warning("Không tìm thấy videos, bắt đầu lại từ đầu")
+                    current_step = "videos"
             
             self.logger.info("Workflow hoàn thành thành công")
             
@@ -270,6 +387,7 @@ class Workflow:
                 "characters": characters,
                 "scenes": scenes,
                 "prompts": veo3_prompts,
+                "videos": video_results,
             }
             
         except Exception as e:
