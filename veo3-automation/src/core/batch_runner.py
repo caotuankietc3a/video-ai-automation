@@ -209,11 +209,20 @@ def _run_worker_process(
                 try:
                     pending_tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
                     if pending_tasks:
-                        print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Có {len(pending_tasks)} tasks chưa hoàn thành, đang đợi...")
-                        loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+                        print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Có {len(pending_tasks)} tasks chưa hoàn thành, đang cancel...")
+                        for task in pending_tasks:
+                            task.cancel()
+                        try:
+                            loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+                        except Exception:
+                            pass
                 except Exception as e:
-                    print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Lỗi khi đợi tasks: {e}")
+                    print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Lỗi khi xử lý pending tasks: {e}")
                 finally:
+                    try:
+                        loop.run_until_complete(loop.shutdown_asyncgens())
+                    except Exception:
+                        pass
                     loop.close()
             
         except Exception as e:

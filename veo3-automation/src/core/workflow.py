@@ -241,10 +241,13 @@ class Workflow:
                     project_manager.save_project(project)
                 
                 self._update_workflow_step(project_file, "characters")
+                current_step = "characters"
             else:
                 if project and project.get("script"):
                     content = {"full_content": project.get("script")}
                     self.logger.info(f"Resume từ step {current_step}, sử dụng content đã có")
+                    if current_step not in ["characters", "scenes", "prompts", "videos"]:
+                        current_step = "characters"
                 else:
                     self.logger.warning("Không tìm thấy content, bắt đầu lại từ đầu")
                     current_step = "content"
@@ -272,10 +275,13 @@ class Workflow:
                     project_manager.save_project(project)
                 
                 self._update_workflow_step(project_file, "scenes")
+                current_step = "scenes"
             else:
                 if project and project.get("characters"):
                     characters = project.get("characters")
                     self.logger.info(f"Resume từ step {current_step}, sử dụng characters đã có")
+                    if current_step not in ["scenes", "prompts", "videos"]:
+                        current_step = "scenes"
                 else:
                     self.logger.warning("Không tìm thấy characters, bắt đầu lại từ đầu")
                     current_step = "characters"
@@ -307,10 +313,13 @@ class Workflow:
                     project_manager.save_project(project)
                 
                 self._update_workflow_step(project_file, "prompts")
+                current_step = "prompts"
             else:
                 if project and project.get("scenes"):
                     scenes = project.get("scenes")
                     self.logger.info(f"Resume từ step {current_step}, sử dụng scenes đã có")
+                    if current_step not in ["prompts", "videos"]:
+                        current_step = "prompts"
                 else:
                     self.logger.warning("Không tìm thấy scenes, bắt đầu lại từ đầu")
                     current_step = "scenes"
@@ -338,10 +347,13 @@ class Workflow:
                     project_manager.save_project(project)
                 
                 self._update_workflow_step(project_file, "videos")
+                current_step = "videos"
             else:
                 if project and project.get("prompts"):
                     veo3_prompts = project.get("prompts")
                     self.logger.info(f"Resume từ step {current_step}, sử dụng prompts đã có")
+                    if current_step != "videos":
+                        current_step = "videos"
                 else:
                     self.logger.warning("Không tìm thấy prompts, bắt đầu lại từ đầu")
                     current_step = "prompts"
