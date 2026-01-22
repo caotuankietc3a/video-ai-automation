@@ -108,11 +108,98 @@ class VideoManager:
                 })
             
             elif platform == 'youtube':
-                ydl_opts.update({
-                    'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    },
-                })
+                youtube_formats = [
+                    'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                    'best[height<=720][ext=mp4]/best[ext=mp4]/best',
+                    'best[ext=mp4]/best',
+                    'worst[ext=mp4]/worst',
+                ]
+                
+                for format_idx, video_format in enumerate(youtube_formats):
+                    try:
+                        current_opts = ydl_opts.copy()
+                        current_opts.update({
+                            'format': video_format,
+                            'merge_output_format': 'mp4',
+                            'http_headers': {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            },
+                            'extractor_args': {
+                                'youtube': {
+                                    'player_client': ['android', 'ios', 'web'],
+                                    'player_skip': ['webpage'],
+                                }
+                            },
+                        })
+                        
+                        if format_idx > 0:
+                            print(f"🔄 Thử format khác: {video_format}")
+                        
+                        with yt_dlp.YoutubeDL(current_opts) as ydl:
+                            print(f"📥 Đang tải video từ {platform.upper()}...")
+                            info = ydl.extract_info(url, download=True)
+                            
+                            if info:
+                                filename = ydl.prepare_filename(info)
+                                downloaded_file = None
+                                
+                                if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                                    downloaded_file = filename
+                                else:
+                                    title = info.get('title', 'video')
+                                    ext = info.get('ext', 'mp4')
+                                    sanitized_title = re.sub(r'[<>:"/\\|?*]', '_', title)
+                                    possible_filename = os.path.join(project_dir, f"{sanitized_title}.{ext}")
+                                    if os.path.exists(possible_filename) and os.path.getsize(possible_filename) > 0:
+                                        downloaded_file = possible_filename
+                                    else:
+                                        for file in os.listdir(project_dir):
+                                            if file.endswith(('.mp4', '.webm', '.mkv')):
+                                                file_path = os.path.join(project_dir, file)
+                                                if os.path.getsize(file_path) > 0:
+                                                    file_mtime = os.path.getmtime(file_path)
+                                                    if file_mtime > (os.path.getmtime(project_dir) - 60):
+                                                        downloaded_file = file_path
+                                                        break
+                                
+                                if downloaded_file and os.path.getsize(downloaded_file) > 0:
+                                    print(f"✓ Đã tải video thành công: {downloaded_file}")
+                                    return downloaded_file
+                                else:
+                                    if format_idx < len(youtube_formats) - 1:
+                                        print(f"⚠ File tải về rỗng, thử format khác...")
+                                        continue
+                                    else:
+                                        print("⚠ Không tìm thấy file video đã tải hoặc file rỗng")
+                                        return None
+                            
+                            print("⚠ Không tìm thấy file video đã tải")
+                            if format_idx < len(youtube_formats) - 1:
+                                continue
+                            return None
+                            
+                    except yt_dlp.utils.DownloadError as e:
+                        error_msg = str(e)
+                        if format_idx < len(youtube_formats) - 1:
+                            print(f"⚠ Lỗi với format hiện tại: {error_msg[:100]}..., thử format khác...")
+                            continue
+                        else:
+                            print(f"❌ Lỗi khi tải video YouTube sau khi thử tất cả formats: {error_msg}")
+                            print("💡 Gợi ý khắc phục:")
+                            print("   1. Cập nhật yt-dlp: pip install -U yt-dlp")
+                            print("   2. Cài đặt JavaScript runtime: pip install jsruntime")
+                            print("   3. Kiểm tra video có còn tồn tại và công khai không")
+                            return None
+                    except Exception as extract_error:
+                        error_msg = str(extract_error)
+                        if format_idx < len(youtube_formats) - 1:
+                            print(f"⚠ Lỗi không mong đợi: {error_msg[:100]}..., thử format khác...")
+                            continue
+                        else:
+                            print(f"❌ Lỗi không mong đợi sau khi thử tất cả formats: {error_msg}")
+                            return None
+                
+                return None
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
@@ -121,7 +208,7 @@ class VideoManager:
                     
                     if info:
                         filename = ydl.prepare_filename(info)
-                        if os.path.exists(filename):
+                        if os.path.exists(filename) and os.path.getsize(filename) > 0:
                             print(f"✓ Đã tải video thành công: {filename}")
                             return filename
                         
@@ -129,19 +216,20 @@ class VideoManager:
                         ext = info.get('ext', 'mp4')
                         sanitized_title = re.sub(r'[<>:"/\\|?*]', '_', title)
                         possible_filename = os.path.join(project_dir, f"{sanitized_title}.{ext}")
-                        if os.path.exists(possible_filename):
+                        if os.path.exists(possible_filename) and os.path.getsize(possible_filename) > 0:
                             print(f"✓ Đã tải video thành công: {possible_filename}")
                             return possible_filename
                         
                         for file in os.listdir(project_dir):
                             if file.endswith(('.mp4', '.webm', '.mkv')):
                                 file_path = os.path.join(project_dir, file)
-                                file_mtime = os.path.getmtime(file_path)
-                                if file_mtime > (os.path.getmtime(project_dir) - 60):
-                                    print(f"✓ Đã tải video thành công: {file_path}")
-                                    return file_path
+                                if os.path.getsize(file_path) > 0:
+                                    file_mtime = os.path.getmtime(file_path)
+                                    if file_mtime > (os.path.getmtime(project_dir) - 60):
+                                        print(f"✓ Đã tải video thành công: {file_path}")
+                                        return file_path
                     
-                    print("⚠ Không tìm thấy file video đã tải")
+                    print("⚠ Không tìm thấy file video đã tải hoặc file rỗng")
                     return None
                     
                 except yt_dlp.utils.DownloadError as e:
