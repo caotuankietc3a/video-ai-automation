@@ -124,6 +124,7 @@ def _run_worker_process(
         browser_instance_id = f"process_{process_id}"
         print(f"📥 [Process {process_id}] [{index}/{total_videos}] Bắt đầu: {video_config.name}")
         
+        loop = None
         try:
             if not video_path:
                 raise Exception(f"Không tìm thấy video path cho: {video_config.name}")
@@ -167,6 +168,15 @@ def _run_worker_process(
                 })
                 print(f"📁 [Process {process_id}] [{index}/{total_videos}] Đã tạo project mới: {project_file}")
             
+            from ..integrations.browser_automation import stop_browser_instance
+            try:
+                temp_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(temp_loop)
+                temp_loop.run_until_complete(stop_browser_instance(browser_instance_id))
+                temp_loop.close()
+            except Exception:
+                pass
+            
             workflow = Workflow(video_config.name, browser_instance_id=browser_instance_id)
             
             project_config_dict = {
@@ -207,27 +217,45 @@ def _run_worker_process(
                 ).to_dict())
             finally:
                 try:
-                    pending_tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
-                    if pending_tasks:
-                        print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Có {len(pending_tasks)} tasks chưa hoàn thành, đang cancel...")
-                        for task in pending_tasks:
-                            task.cancel()
-                        try:
-                            loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
-                        except Exception:
-                            pass
+                    from ..integrations.browser_automation import stop_browser_instance
+                    loop.run_until_complete(stop_browser_instance(browser_instance_id))
                 except Exception as e:
-                    print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Lỗi khi xử lý pending tasks: {e}")
+                    print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Lỗi khi stop browser: {e}")
                 finally:
                     try:
-                        loop.run_until_complete(loop.shutdown_asyncgens())
-                    except Exception:
-                        pass
-                    loop.close()
+                        pending_tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
+                        if pending_tasks:
+                            print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Có {len(pending_tasks)} tasks chưa hoàn thành, đang cancel...")
+                            for task in pending_tasks:
+                                task.cancel()
+                            try:
+                                loop.run_until_complete(asyncio.gather(*pending_tasks, return_exceptions=True))
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        print(f"⚠️ [Process {process_id}] [{index}/{total_videos}] Lỗi khi xử lý pending tasks: {e}")
+                    finally:
+                        try:
+                            loop.run_until_complete(loop.shutdown_asyncgens())
+                        except Exception:
+                            pass
+                        loop.close()
+                        loop = None
             
         except Exception as e:
             error_msg = str(e)
             print(f"❌ [Process {process_id}] [{index}/{total_videos}] Lỗi {video_config.name}: {error_msg}")
+            
+            if loop:
+                try:
+                    from ..integrations.browser_automation import stop_browser_instance
+                    loop.run_until_complete(stop_browser_instance(browser_instance_id))
+                except Exception:
+                    pass
+                try:
+                    loop.close()
+                except Exception:
+                    pass
             
             results.append(VideoResult(
                 name=video_config.name,
