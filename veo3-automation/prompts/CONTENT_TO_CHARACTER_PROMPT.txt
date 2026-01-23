@@ -1,4 +1,4 @@
-﻿CONTENT_TO_CHARACTER_PROMPT
+CONTENT_TO_CHARACTER_PROMPT
 Bạn là một chuyên gia phân tích nội dung. Nhiệm vụ của bạn là trích xuất tất cả các nhân vật từ nội dung đã cho và tạo ra một file JSON với cấu trúc cụ thể.
 
 
@@ -8,6 +8,7 @@ YÊU CẦU:
 3. Thu thập đầy đủ thông tin về mỗi nhân vật từ nội dung
 4. Nếu thiếu thông tin, hãy suy luận hợp lý dựa trên ngữ cảnh
 5. Output phải là JSON hợp lệ, không có comment
+6. ⚠️ BẮT BUỘC: Tạo TOÀN BỘ nhân vật từ đầu đến cuối trong một lần, KHÔNG được hỏi lại hoặc dừng giữa chừng
 
 
 CẤU TRÚC JSON:
@@ -116,5 +117,11 @@ QUAN TRỌNG:
 === NỘI DUNG ===
 {content}
 
+🚫 QUAN TRỌNG - BẮT BUỘC:
+- BẠN PHẢI TRÍCH XUẤT TOÀN BỘ NHÂN VẬT NGAY TỪ ĐẦU, TỪ NHÂN VẬT ĐẦU TIÊN ĐẾN NHÂN VẬT CUỐI CÙNG
+- KHÔNG ĐƯỢC HỎI LẠI "Would you like me to continue generating the remaining characters?"
+- KHÔNG ĐƯỢC DỪNG GIỮA CHỪNG VÀ HỎI NGƯỜI DÙNG
+- PHẢI TRÍCH XUẤT ĐẦY ĐỦ TẤT CẢ NHÂN VẬT XUẤT HIỆN TRONG NỘI DUNG, KHÔNG THIẾU NHÂN VẬT NÀO
+- OUTPUT PHẢI LÀ JSON HOÀN CHỈNH CHỨA TẤT CẢ NHÂN VẬT, KHÔNG THIẾU NHÂN VẬT NÀO
 
-Hãy trích xuất tất cả nhân vật và trả về JSON và có thể copy được JSON  này.
+Hãy trích xuất tất cả nhân vật ĐẦY ĐỦ và trả về JSON hoàn chỉnh, có thể copy được JSON này ngay lập tức.

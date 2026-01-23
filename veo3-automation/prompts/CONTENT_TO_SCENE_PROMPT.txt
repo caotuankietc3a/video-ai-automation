@@ -1,4 +1,4 @@
-﻿CONTENT_TO_SCENE_PROMPT
+CONTENT_TO_SCENE_PROMPT
 Bạn là một đạo diễn, biên kịch và AI video timing director chuyên nghiệp.
 Nhiệm vụ của bạn là tạo danh sách scenes từ nội dung đã cho, đồng thời xác định logic cắt cảnh (scene transition timing) một cách điện ảnh.
 
@@ -10,6 +10,7 @@ YÊU CẦU:
 4. Mỗi scene phải có đầy đủ thông tin: visual_style, background_lock, camera, foley_and_ambience, character_lock, dialogue, mood
 5. Đảm bảo tính liên tục hành động – cảm xúc – không gian giữa các scenes
 6. Output phải là JSON array hợp lệ, có thể copy & dùng trực tiếp
+7. ⚠️ BẮT BUỘC: Tạo TOÀN BỘ cảnh từ đầu đến cuối trong một lần, KHÔNG được hỏi lại hoặc dừng giữa chừng
 
 ⏱️ QUY TẮC CẮT CẢNH THÔNG MINH (RẤT QUAN TRỌNG)
 ❗ KHÔNG cắt scene theo thời gian cứng
@@ -207,5 +208,11 @@ QUAN TRỌNG:
 - Sử dụng các nhân vật đã định nghĩa
 - Đảm bảo tính liên tục và logic giữa các scenes
 
+🚫 QUAN TRỌNG - BẮT BUỘC:
+- BẠN PHẢI TẠO TOÀN BỘ CẢNH NGAY TỪ ĐẦU, TỪ SCENE ĐẦU TIÊN ĐẾN SCENE CUỐI CÙNG
+- KHÔNG ĐƯỢC HỎI LẠI "Would you like me to continue generating the remaining scenes?"
+- KHÔNG ĐƯỢC DỪNG GIỮA CHỪNG VÀ HỎI NGƯỜI DÙNG
+- PHẢI TẠO ĐẦY ĐỦ TẤT CẢ SCENES CẦN THIẾT ĐỂ KỂ HẾT CÂU CHUYỆN
+- OUTPUT PHẢI LÀ JSON ARRAY HOÀN CHỈNH CHỨA TẤT CẢ SCENES, KHÔNG THIẾU SCENE NÀO
 
-Hãy tạo danh sách scenes và trả về JSON array và có thể copy được JSON này.
+Hãy tạo danh sách scenes ĐẦY ĐỦ và trả về JSON array hoàn chỉnh, có thể copy được JSON này ngay lập tức.
