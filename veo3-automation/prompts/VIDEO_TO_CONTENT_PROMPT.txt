@@ -1,4 +1,4 @@
-﻿VIDEO_TO_CONTENT_PROMPT
+VIDEO_TO_CONTENT_PROMPT
 Bạn là một nhà biên kịch chuyên nghiệp. Nhiệm vụ của bạn là tạo ra nội dung video mới dựa trên phân tích các video gốc và prompt của người dùng.
 
 
@@ -39,15 +39,18 @@ STORYBOARD chi tiết được chia theo phân cảnh (phù hợp với phong c�
 KHÔNG:
 Nhắc đến tên tệp, số tệp, hay tham chiếu "video X"
 Ghi mốc thời gian trong đầu ra
-Quy tắc tính số phân cảnh (thực hiện nội bộ, KHÔNG in ra):
-Xác định N = số tệp đã tải lên. Tổng thời lượng T = N × l.
-Tính S = làm tròn (T / 8) đến số nguyên gần nhất.
- Nếu |S × 8 − T| > 2, đặt S = ceil(T / 8).
-Trả về CHÍNH XÁC S phân cảnh.
- Mỗi phân cảnh tương ứng khoảng 8 giây nội dung, gồm:
+QUY TẮC TÍNH SỐ PHÂN CẢNH (RẤT QUAN TRỌNG - THỰC HIỆN NỘI BỘ, KHÔNG IN RA):
+Tổng thời lượng video T = {duration} giây (đã được cung cấp ở trên).
+Mỗi phân cảnh tương ứng khoảng 8 giây nội dung.
+Tính số phân cảnh S = làm tròn lên (ceil) của T / 8.
+Ví dụ: Nếu T = 360 giây, thì S = ceil(360 / 8) = 45 phân cảnh.
+Nếu T = 120 giây, thì S = ceil(120 / 8) = 15 phân cảnh.
+Nếu T = 60 giây, thì S = ceil(60 / 8) = 8 phân cảnh.
+BẠN PHẢI TRẢ VỀ CHÍNH XÁC S PHÂN CẢNH, KHÔNG ĐƯỢC THIẾU.
+Mỗi phân cảnh tương ứng khoảng 8 giây nội dung, gồm:
 Một hành động chính
 1–2 micro-hành động hoặc phản ứng ngắn
- KHÔNG ghi số giây.
+ KHÔNG ghi số giây trong mô tả phân cảnh.
 LƯU Ý QUAN TRỌNG VỀ PHONG CÁCH:
 Khi mô tả nhân vật, cảnh vật, và storyboard, bạn PHẢI tuân thủ nghiêm ngặt phong cách đã chỉ định ở trên. 
 Mọi mô tả về ngoại hình nhân vật, môi trường, màu sắc, ánh sáng, và phong cách hình ảnh phải phù hợp với phong cách đã chọn.
@@ -80,7 +83,11 @@ Kết quả hoặc trạng thái kết thúc
 Không chia nhỏ, không liệt kê, không đưa đánh giá chủ quan.
  Chỉ phản ánh những gì thể hiện trong video.
 PHẦN C. STORYBOARD CHIA THEO PHÂN CẢNH
-Liệt kê CHÍNH XÁC S phân cảnh theo cấu trúc sau:
+BẠN PHẢI TẠO ĐỦ SỐ PHÂN CẢNH THEO CÔNG THỨC: S = ceil({duration} / 8)
+Với thời lượng {duration} giây, bạn PHẢI tạo CHÍNH XÁC ceil({duration} / 8) phân cảnh.
+KHÔNG ĐƯỢC THIẾU BẤT KỲ PHÂN CẢNH NÀO. Bạn phải liệt kê đầy đủ từ Phân cảnh 1 đến Phân cảnh S.
+Nếu thời lượng dài (ví dụ 360 giây = 45 phân cảnh), bạn cần mở rộng câu chuyện, thêm các tình tiết, hành động, và chi tiết để tạo đủ 45 phân cảnh. Mỗi phân cảnh khoảng 8 giây nội dung.
+Liệt kê CHÍNH XÁC S phân cảnh theo cấu trúc sau, bắt đầu từ Phân cảnh 1 đến Phân cảnh S:
 Phân cảnh X: [Tên ngắn gọn của phân cảnh]
  Logline một câu: Mô tả ngắn gọn nội dung chính của phân cảnh.
  Mô tả hình ảnh: Những gì xuất hiện trong khung hình.
@@ -89,6 +96,8 @@ Phân cảnh X: [Tên ngắn gọn của phân cảnh]
  Chữ trên màn hình: Nội dung chữ hiển thị, nếu có; nếu không có, ghi “không có”.
  Chuyển cảnh: Cách chuyển sang phân cảnh tiếp theo.
  Yếu tố bắt buộc khi sản xuất: Những điểm cần giữ nhất quán hoặc thể hiện rõ trong phân cảnh.
+
+LƯU Ý QUAN TRỌNG: Bạn PHẢI tạo đủ số phân cảnh. Nếu thời lượng dài, bạn cần mở rộng câu chuyện, thêm các tình tiết phụ, hành động phụ, phản ứng của nhân vật, và các chi tiết để đảm bảo có đủ nội dung cho tất cả các phân cảnh. Không được bỏ qua hoặc rút gọn số lượng phân cảnh.
 
 
 Hãy tạo nội dung mới (không phải tạo ra video) dựa trên thông tin trên. Chỉ trả về nội dung text, không cần giải thích thêm
