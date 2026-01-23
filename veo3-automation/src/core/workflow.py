@@ -165,6 +165,7 @@ class Workflow:
                         project["script"] = script_text
                         project_manager.save_project(project)
                     self._update_workflow_step(project_file, "content")
+                    current_step = "content"
                 elif video_analysis_override:
                     self.logger.info(
                         "Dùng video_analysis_override từ ô Kịch bản/Ý tưởng",
@@ -175,10 +176,12 @@ class Workflow:
                         project["script"] = video_analysis_override
                         project_manager.save_project(project)
                     self._update_workflow_step(project_file, "content")
+                    current_step = "content"
                 elif project and project.get("script"):
                     self.logger.info("Dùng script từ project đã lưu làm VIDEO_ANALYSIS")
                     video_analysis = project.get("script")
                     self._update_workflow_step(project_file, "content")
+                    current_step = "content"
                 else:
                     self.logger.info(
                         "Không có sẵn VIDEO_ANALYSIS, bắt đầu phân tích video tự động",
@@ -208,6 +211,7 @@ class Workflow:
                         project_manager.save_project(project)
                     
                     self._update_workflow_step(project_file, "content")
+                    current_step = "content"
             else:
                 if project and project.get("script"):
                     video_analysis = project.get("script")
