@@ -1,0 +1,17 @@
+{
+  "max_concurrent": 1,
+  "items": [
+    {
+      "name": "Sample_Idol_1",
+      "idol_image": "/absolute/path/to/idol1.png",
+      "dance_video": "/absolute/path/to/dance1.mp4",
+      "mode": "prompt_only"
+    },
+    {
+      "name": "Sample_Idol_2",
+      "idol_image": "/absolute/path/to/idol2.png",
+      "dance_video": "/absolute/path/to/dance2.mp4",
+      "mode": "full"
+    }
+  ]
+}

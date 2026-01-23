@@ -1,0 +1,31 @@
+Kling Idol Background Prompt Template
+
+Input dữ liệu:
+- idol.name
+- idol.outfit_description
+- idol.pose_style
+- dance.style
+- dance.bpm
+- dance.energy_level
+- background.location
+- background.environment_details
+- background.depth_and_space
+- color_mood.primary_palette
+- color_mood.accent_colors
+- color_mood.overall_mood
+- color_mood.lighting_style
+- extra_instructions (optional)
+
+Template tiếng Anh gợi ý:
+
+A dynamic TikTok Vinahouse dance video of {idol_name_segment}{idol_outfit_description},
+performing a {dance_style} routine with {dance_energy_level} energy
+at around {dance_bpm} BPM. The scene takes place in {background_location},
+surrounded by {background_environment_details}, with clear depth and space:
+{background_depth_and_space}. The color palette focuses on {primary_palette}
+with accent colors of {accent_colors}, creating an overall
+{overall_mood} atmosphere using {lighting_style} lighting.
+The camera keeps the idol as the clear main subject with smooth,
+rhythm-synced motion, optimized for vertical short-form video.
+{extra_instructions_optional}
+
