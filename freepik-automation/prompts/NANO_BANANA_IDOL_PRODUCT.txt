@@ -1,0 +1,488 @@
+Nano Banana Image Generation - Idol + Affiliate Product Prompt Template
+
+Input dữ liệu:
+- idol.name
+- idol.outfit_description
+- idol.pose_style
+- idol.body_type
+- product.name
+- product.category
+- product.description
+- product.placement
+- product.visibility
+- background.location
+- background.environment_details
+- background.depth_and_space
+- color_mood.primary_palette
+- color_mood.accent_colors
+- color_mood.overall_mood
+- color_mood.lighting_style
+- composition.aspect_ratio (vertical 9:16, square 1:1, etc.)
+- composition.framing (full body, half body, close-up, etc.)
+- extra_instructions (optional)
+
+================================================================================
+HƯỚNG DẪN ĐIỀN INPUT TỪ JSON (GEMINI_IDOL_PRODUCT_ANALYSIS.txt)
+================================================================================
+
+Sau khi có JSON từ Gemini AI phân tích ảnh idol + ảnh sản phẩm, mapping như sau:
+
+1. Idol Information:
+   - {idol_name_segment} → 
+     * Nếu json.idol.name có giá trị: f"{json.idol.name} " (có dấu cách ở cuối)
+     * Nếu json.idol.name là null hoặc rỗng: "" (bỏ qua)
+   - {idol_outfit_description} → json.idol.outfit_description
+   - {pose_style} → json.idol.pose_style
+   - {body_type} → json.idol.body_type (nếu cần, thường không dùng trong template)
+
+2. Product Information:
+   - {product_name} → json.product.name
+   - {product_description} → json.product.description
+   - {product_placement} → json.product.placement
+   - {product_visibility} → json.product.visibility
+
+3. CHỌN TEMPLATE DỰA TRÊN product.category:
+   
+   Bước 1: Kiểm tra json.product.category và chọn template theo bảng sau:
+   
+   ┌──────────────────────┬─────────────────────────────────────────────┐
+   │ product.category     │ Template được chọn                          │
+   ├──────────────────────┼─────────────────────────────────────────────┤
+   │ "clothing"           │ Template cho Quần Áo (Clothing)             │
+   │ "accessory"          │ Template cho Phụ Kiện (Accessories)          │
+   │ "bag"                │ Template cho Phụ Kiện (Accessories)          │
+   │ "footwear"           │ Template cho Phụ Kiện (Accessories)          │
+   │ "watch"              │ Template cho Phụ Kiện (Accessories)          │
+   │ "jewelry"            │ Template cho Trang Sức (Jewelry)            │
+   │ "electronics"        │ Template cho Điện Tử (Electronics)          │
+   │ "cosmetics"          │ Template cho Mỹ Phẩm (Cosmetics)            │
+   │ Khác (không khớp)    │ Template Tổng Quát (General)                │
+   └──────────────────────┴─────────────────────────────────────────────┘
+   
+   Bước 2: Kiểm tra composition.aspect_ratio để quyết định có dùng format template không:
+   
+   - Nếu json.composition.aspect_ratio == "9:16" (vertical):
+     → Có thể dùng "Template cho Ảnh Dọc TikTok/Instagram Story" 
+       THAY VÌ template ở Bước 1 (nếu muốn format chuyên biệt)
+   
+   - Nếu json.composition.aspect_ratio == "1:1" (square):
+     → Có thể dùng "Template cho Ảnh Vuông Instagram Post"
+       THAY VÌ template ở Bước 1 (nếu muốn format chuyên biệt)
+   
+   Bước 3: Nếu muốn sản phẩm nổi bật đặc biệt:
+   - Có thể chọn "Template cho Sản Phẩm Nổi Bật (Prominent Product Showcase)"
+     cho bất kỳ category nào khi cần highlight sản phẩm là trọng tâm chính
+   
+   Bước 4: Nếu muốn tạo ảnh idol sexy, gợi cảm, thu hút nam giới:
+   - Có thể chọn các "Template cho Idol Sexy" thay vì template category
+   - Chọn template sexy phù hợp:
+     * "Template cho Idol Sexy + Product" → Cho full body hoặc half body
+     * "Template cho Idol Sexy - Close-up Portrait" → Cho close-up, nhấn mạnh mặt
+     * "Template cho Idol Sexy - Full Body Showcase" → Cho full body, nhấn mạnh figure
+   - Áp dụng khi cần: idol sexy, gợi cảm, thu hút nam giới, emphasize curves
+   - Xem thêm phần "CÁCH SỬ DỤNG TEMPLATE SEXY" ở cuối file
+   
+   Lưu ý:
+   - Template format (9:16, 1:1) có thể dùng kết hợp với category template
+   - Nếu không chắc, dùng template theo category ở Bước 1
+   - Template "Sản Phẩm Nổi Bật" phù hợp khi product.visibility = "prominent" hoặc "featured"
+   - Template "Sexy" phù hợp khi cần tạo ảnh gợi cảm, thu hút nam giới
+
+4. Background Information:
+   - {background_location} → json.background.location
+   - {background_environment_details} → json.background.environment_details
+   - {background_depth_and_space} → json.background.depth_and_space
+
+5. Color Mood Information:
+   - {primary_palette} → ", ".join(json.color_mood.primary_palette)
+     Ví dụ: ["warm beige", "soft white"] → "warm beige, soft white"
+   - {accent_colors} → ", ".join(json.color_mood.accent_colors)
+     Ví dụ: ["gold highlights"] → "gold highlights"
+   - {overall_mood} → json.color_mood.overall_mood
+   - {lighting_style} → json.color_mood.lighting_style
+
+6. Composition Information:
+   - {composition_framing} → json.composition.framing
+   - {composition_aspect_ratio} → json.composition.aspect_ratio
+   - Lưu ý: aspect_ratio đã được xử lý ở Bước 2 của phần "CHỌN TEMPLATE"
+
+7. Extra Instructions:
+   - {extra_instructions_optional} → 
+     * Nếu json.extra_instructions có giá trị: json.extra_instructions
+     * Nếu json.extra_instructions là null: "" (bỏ qua)
+
+Ví dụ mapping cụ thể:
+
+JSON Input:
+{
+  "idol": {
+    "name": null,
+    "outfit_description": "wearing a white casual t-shirt and blue jeans",
+    "pose_style": "confident standing pose with hand on hip",
+    "body_type": "slim"
+  },
+  "product": {
+    "name": "leather handbag",
+    "category": "accessory",
+    "description": "black leather handbag with gold hardware, structured design",
+    "placement": "carrying",
+    "visibility": "prominently"
+  },
+  "background": {
+    "location": "modern minimalist studio",
+    "environment_details": "clean white background with subtle shadows",
+    "depth_and_space": "idol in foreground with ample space around"
+  },
+  "color_mood": {
+    "primary_palette": ["white", "soft gray", "black"],
+    "accent_colors": ["gold accents"],
+    "overall_mood": "elegant and modern",
+    "lighting_style": "soft studio lighting"
+  },
+  "composition": {
+    "aspect_ratio": "9:16",
+    "framing": "full body"
+  },
+  "extra_instructions": null
+}
+
+Mapping Result:
+- {idol_name_segment} → "" (vì name là null)
+- {idol_outfit_description} → "wearing a white casual t-shirt and blue jeans"
+- {pose_style} → "confident standing pose with hand on hip"
+- {product_name} → "leather handbag"
+- {product_description} → "black leather handbag with gold hardware, structured design"
+- {product_placement} → "carrying"
+- {product_visibility} → "prominently"
+- {background_location} → "modern minimalist studio"
+- {background_environment_details} → "clean white background with subtle shadows"
+- {background_depth_and_space} → "idol in foreground with ample space around"
+- {primary_palette} → "white, soft gray, black"
+- {accent_colors} → "gold accents"
+- {overall_mood} → "elegant and modern"
+- {lighting_style} → "soft studio lighting"
+- {composition_framing} → "full body"
+- {composition_aspect_ratio} → "9:16"
+- {extra_instructions_optional} → "" (vì null)
+
+Ví dụ chọn template:
+
+Case 1: Sản phẩm là túi xách (bag)
+- json.product.category = "bag"
+- Bước 1: Chọn "Template cho Phụ Kiện" (vì "bag" khớp với bảng)
+- Bước 2: json.composition.aspect_ratio = "9:16"
+  → Có thể dùng "Template cho Ảnh Dọc" nếu muốn format chuyên biệt
+  → Hoặc giữ "Template cho Phụ Kiện" nếu muốn theo category
+- Kết quả: Chọn "Template cho Phụ Kiện" (recommended)
+
+Case 2: Sản phẩm là son môi (cosmetics)
+- json.product.category = "cosmetics"
+- Bước 1: Chọn "Template cho Mỹ Phẩm"
+- Bước 2: json.composition.aspect_ratio = "1:1"
+  → Có thể dùng "Template cho Ảnh Vuông" nếu muốn format chuyên biệt
+- Kết quả: Chọn "Template cho Mỹ Phẩm" (recommended) hoặc "Template cho Ảnh Vuông"
+
+Case 3: Sản phẩm cần highlight đặc biệt
+- json.product.category = "jewelry"
+- json.product.visibility = "prominent"
+- Bước 1: Chọn "Template cho Trang Sức"
+- Bước 3: Vì visibility = "prominent" → Có thể chọn "Template cho Sản Phẩm Nổi Bật"
+- Kết quả: Chọn "Template cho Sản Phẩm Nổi Bật" (để highlight tốt hơn)
+
+Case 4: Tạo ảnh idol sexy với sản phẩm
+- json.product.category = "clothing"
+- Yêu cầu: idol sexy, gợi cảm, thu hút nam giới
+- Bước 1: Chọn "Template cho Quần Áo"
+- Bước 4: Vì cần sexy → Chọn "Template cho Idol Sexy + Product" hoặc "Template cho Idol Sexy - Full Body Showcase"
+- Điều chỉnh JSON:
+  * pose_style: Thêm "seductive pose" hoặc "alluring pose"
+  * outfit_description: Thêm "form-fitting", "sexy"
+  * overall_mood: Đổi thành "sensual" hoặc "alluring"
+  * lighting_style: Đổi thành "soft romantic lighting"
+- Kết quả: Chọn "Template cho Idol Sexy + Product" (để tạo ảnh gợi cảm)
+
+Template được chọn trong ví dụ mapping: Template cho Phụ Kiện (vì category là "accessory")
+
+================================================================================
+TEMPLATE PROMPT CHO ẢNH IDOL + AFFILIATE PRODUCT
+================================================================================
+
+Template cho Quần Áo (Clothing):
+
+A high-quality portrait photo of {idol_name_segment}wearing {product_description}
+as part of {idol_outfit_description}, striking a {pose_style} pose.
+The {product_name} is {product_visibility} displayed and clearly visible,
+showcasing its design and details. The scene is set in {background_location}
+with {background_environment_details}, arranged with {background_depth_and_space}
+to create depth. The color palette emphasizes {primary_palette} with
+{accent_colors} accents, creating a {overall_mood} atmosphere through
+{lighting_style} lighting. Professional photography composition, {composition_framing}
+framing, {composition_aspect_ratio} aspect ratio, sharp focus on the idol and
+{product_name}, studio quality, high resolution, detailed textures.
+{extra_instructions_optional}
+
+---
+
+Template cho Phụ Kiện (Accessories - Túi, Ví, Giày, Mũ):
+
+A stylish fashion photo featuring {idol_name_segment}{idol_outfit_description}
+{product_placement} a {product_name} - {product_description}. The idol poses
+in a {pose_style} stance, with the {product_name} {product_visibility} showcased
+as a key element of the look. Background: {background_location} enhanced by
+{background_environment_details}, utilizing {background_depth_and_space} for
+visual depth. Color scheme focuses on {primary_palette} highlighted by
+{accent_colors}, creating a {overall_mood} aesthetic with {lighting_style}
+illumination. Professional fashion photography, {composition_framing} composition,
+{composition_aspect_ratio} format, the {product_name} is clearly visible and
+well-lit, high detail, magazine quality.
+{extra_instructions_optional}
+
+---
+
+Template cho Trang Sức (Jewelry - Vòng, Nhẫn, Dây Chuyền):
+
+An elegant portrait photo of {idol_name_segment}{idol_outfit_description}
+adorned with {product_name} - {product_description}, posing in a {pose_style}
+position. The {product_name} is {product_placement} and {product_visibility}
+catches the light beautifully, highlighting its details and craftsmanship.
+The setting is {background_location} featuring {background_environment_details},
+with spatial arrangement: {background_depth_and_space}. Color palette centers on
+{primary_palette} with {accent_colors} accents, establishing a {overall_mood}
+atmosphere through {lighting_style} lighting. Professional jewelry photography,
+{composition_framing} framing, {composition_aspect_ratio} aspect ratio,
+the {product_name} sparkles and is the focal point, high resolution, detailed.
+{extra_instructions_optional}
+
+---
+
+Template cho Điện Tử (Electronics - Điện Thoại, Tai Nghe, Đồng Hồ Thông Minh):
+
+A modern lifestyle photo showcasing {idol_name_segment}{idol_outfit_description}
+{product_placement} a {product_name} - {product_description}. The idol poses
+in a {pose_style} stance, naturally {product_placement} the {product_name} which
+is {product_visibility} featured. Location: {background_location} with
+{background_environment_details}, structured with {background_depth_and_space}.
+Color palette built on {primary_palette} with {accent_colors} highlights,
+conveying a {overall_mood} vibe via {lighting_style} lighting. Professional
+product photography, {composition_framing} composition, {composition_aspect_ratio}
+format, the {product_name} is clearly visible and well-positioned, sharp focus,
+high detail, lifestyle magazine quality.
+{extra_instructions_optional}
+
+---
+
+Template cho Mỹ Phẩm (Cosmetics - Son, Phấn, Kem):
+
+A polished beauty portrait of {idol_name_segment}{idol_outfit_description}
+showcasing {product_name} - {product_description}. The idol poses in a
+{pose_style} position, with the {product_name} {product_visibility} visible
+and highlighting its effect on the idol's appearance. Stage setting:
+{background_location} enhanced with {background_environment_details}, designed
+with {background_depth_and_space}. Visual palette combines {primary_palette}
+with {accent_colors} accents, creating a {overall_mood} atmosphere using
+{lighting_style} lighting. Professional beauty photography, {composition_framing}
+framing, {composition_aspect_ratio} aspect ratio, focus on the idol's face and
+the {product_name}'s impact, soft lighting, high resolution, detailed skin texture.
+{extra_instructions_optional}
+
+---
+
+Template Tổng Quát (General Product Integration):
+
+A professional product showcase photo featuring {idol_name_segment}
+{idol_outfit_description} {product_placement} {product_name} - {product_description}.
+The idol poses in a {pose_style} stance, with the {product_name} {product_visibility}
+integrated naturally into the composition. Background: {background_location} with
+{background_environment_details}, utilizing {background_depth_and_space} for depth.
+Color scheme uses {primary_palette} as base with {accent_colors} touches,
+establishing a {overall_mood} mood through {lighting_style} lighting.
+Professional photography, {composition_framing} composition, {composition_aspect_ratio}
+format, the {product_name} remains clearly visible and well-lit, balanced composition,
+high detail, commercial quality.
+{extra_instructions_optional}
+
+---
+
+Template cho Sản Phẩm Nổi Bật (Prominent Product Showcase):
+
+A product-focused portrait photo starring {idol_name_segment}{idol_outfit_description}
+featuring the {product_name} - {product_description} as the central element.
+The idol poses in a {pose_style} position, {product_placement} the {product_name}
+which is prominently displayed and {product_visibility} showcased. The scene takes
+place in {background_location} with {background_environment_details}, arranged
+with {background_depth_and_space} to ensure the {product_name} stands out while
+maintaining visual balance. Color palette emphasizes {primary_palette} with
+{accent_colors} accents, creating a {overall_mood} atmosphere using {lighting_style}
+lighting. Professional product photography, {composition_framing} framing,
+{composition_aspect_ratio} aspect ratio, strategic lighting highlights the
+{product_name} at key areas, the idol complements the product, sharp focus on
+both subject and product, high resolution, detailed, commercial advertising quality.
+{extra_instructions_optional}
+
+---
+
+Template cho Ảnh Dọc TikTok/Instagram Story (Vertical 9:16):
+
+A vertical portrait photo of {idol_name_segment}{idol_outfit_description}
+{product_placement} {product_name} - {product_description}, posing in a
+{pose_style} stance optimized for vertical mobile viewing. The {product_name}
+is {product_visibility} featured and clearly visible. Background: {background_location}
+with {background_environment_details}, arranged with {background_depth_and_space}.
+Color scheme: {primary_palette} with {accent_colors} accents, {overall_mood}
+mood, {lighting_style} lighting. Vertical composition 9:16 aspect ratio,
+{composition_framing} framing, perfect for TikTok/Instagram Story format,
+the idol and {product_name} are centered and well-framed, high resolution,
+social media optimized.
+{extra_instructions_optional}
+
+---
+
+Template cho Ảnh Vuông Instagram Post (Square 1:1):
+
+A square format portrait photo of {idol_name_segment}{idol_outfit_description}
+{product_placement} {product_name} - {product_description}, in a {pose_style}
+pose. The {product_name} is {product_visibility} displayed. Setting:
+{background_location} with {background_environment_details}, using
+{background_depth_and_space}. Colors: {primary_palette} with {accent_colors},
+{overall_mood} atmosphere, {lighting_style} lighting. Square 1:1 composition,
+{composition_framing} framing, optimized for Instagram feed, balanced composition,
+the idol and {product_name} are well-positioned, high quality, social media ready.
+{extra_instructions_optional}
+
+---
+
+================================================================================
+TEMPLATE CHO IDOL SEXY/ATTRACTIVE (THU HÚT NAM GIỚI)
+================================================================================
+
+Khi cần tạo ảnh idol sexy, gợi cảm, thu hút nam giới, áp dụng các điều kiện sau:
+
+1. POSE STYLE (pose_style):
+   - "seductive pose", "alluring pose", "sensual pose", "provocative pose"
+   - "confident pose with hand on hip", "leaning pose showing curves"
+   - "sitting pose with legs crossed", "lying pose", "bent over pose"
+   - "looking back over shoulder", "hand touching hair", "sultry gaze"
+   - "body turned to show curves", "one hand on hip, other hand touching face"
+
+2. OUTFIT DESCRIPTION (idol_outfit_description):
+   - Thêm các từ: "form-fitting", "body-hugging", "curve-hugging", "tight-fitting"
+   - "revealing", "low-cut", "short", "sexy", "alluring", "provocative"
+   - "showing cleavage", "showing legs", "showing midriff", "backless"
+   - Ví dụ: "wearing a form-fitting black dress with low neckline, showing curves"
+
+3. LIGHTING STYLE (lighting_style):
+   - "soft romantic lighting", "dramatic side lighting", "rim lighting"
+   - "warm ambient lighting", "sensual lighting", "moody lighting"
+   - "backlighting highlighting silhouette", "soft glow lighting"
+
+4. OVERALL MOOD (overall_mood):
+   - "sensual", "alluring", "seductive", "provocative", "romantic", "sultry"
+   - "enticing", "captivating", "mesmerizing", "irresistible"
+
+5. COMPOSITION FRAMING (composition.framing):
+   - "half body" hoặc "three-quarter shot" để nhấn mạnh đường cong
+   - "close-up" cho ảnh gợi cảm tập trung vào mặt và phần trên
+   - "full body" nếu muốn show toàn bộ figure
+
+6. EXTRA INSTRUCTIONS (extra_instructions):
+   - "emphasizing feminine curves", "highlighting attractive features"
+   - "sensual and alluring expression", "seductive gaze"
+   - "showing confidence and allure", "captivating and mesmerizing"
+   - "appealing to male audience", "irresistible charm"
+
+Template cho Idol Sexy + Product:
+
+A captivating and alluring portrait photo of {idol_name_segment}{idol_outfit_description}
+{product_placement} {product_name} - {product_description}, posing in a {pose_style}
+with a sensual and seductive expression. The idol's pose emphasizes feminine curves
+and attractive features, creating an irresistible and mesmerizing appeal. The {product_name}
+is {product_visibility} showcased, complementing the idol's alluring look. Background:
+{background_location} with {background_environment_details}, arranged with
+{background_depth_and_space}. Color palette emphasizes {primary_palette} with
+{accent_colors} accents, creating a {overall_mood} and {overall_mood} atmosphere
+through {lighting_style} lighting that highlights the idol's beauty. Professional
+sensual photography, {composition_framing} framing, {composition_aspect_ratio}
+aspect ratio, the idol's seductive gaze and alluring pose captivate the viewer,
+the {product_name} is clearly visible and well-positioned, emphasizing curves,
+high resolution, detailed, magazine quality, appealing to male audience.
+{extra_instructions_optional}
+
+---
+
+Template cho Idol Sexy - Close-up Portrait:
+
+An alluring close-up portrait of {idol_name_segment}{idol_outfit_description}
+{product_placement} {product_name} - {product_description}, with a {pose_style}
+and seductive expression. The idol's face shows confidence and irresistible charm,
+with {product_name} {product_visibility} displayed. The setting is
+{background_location} featuring {background_environment_details}, using
+{background_depth_and_space}. Color scheme: {primary_palette} with {accent_colors},
+creating a {overall_mood} and sensual atmosphere with {lighting_style} lighting.
+Professional beauty photography, close-up framing, {composition_aspect_ratio}
+format, focusing on the idol's captivating eyes and alluring features, the
+{product_name} complements the look, soft focus on background, sharp focus on
+idol and product, high resolution, detailed skin texture, mesmerizing appeal.
+{extra_instructions_optional}
+
+---
+
+Template cho Idol Sexy - Full Body Showcase:
+
+A stunning full-body portrait of {idol_name_segment}{idol_outfit_description}
+{product_placement} {product_name} - {product_description}, striking a {pose_style}
+that showcases feminine curves and an alluring figure. The idol's pose is sensual
+and confident, with the {product_name} {product_visibility} featured as part of
+the captivating look. Background: {background_location} enhanced by
+{background_environment_details}, utilizing {background_depth_and_space} to
+create depth while keeping focus on the idol. Color palette built on {primary_palette}
+with {accent_colors} highlights, conveying a {overall_mood} and seductive vibe
+via {lighting_style} lighting that emphasizes the idol's attractive silhouette.
+Professional fashion photography, full body composition, {composition_aspect_ratio}
+format, the idol's alluring pose and the {product_name} are both clearly visible,
+emphasizing curves and appeal, high detail, magazine quality, irresistible charm.
+{extra_instructions_optional}
+
+---
+
+CÁCH SỬ DỤNG TEMPLATE SEXY:
+
+1. Khi JSON có product.category bất kỳ, bạn có thể thay thế template category
+   bằng template sexy tương ứng nếu muốn tạo ảnh gợi cảm.
+
+2. Mapping từ template category sang template sexy:
+   - Template Quần Áo → Template cho Idol Sexy + Product (hoặc Full Body)
+   - Template Phụ Kiện → Template cho Idol Sexy + Product
+   - Template Trang Sức → Template cho Idol Sexy - Close-up (nhấn mạnh trang sức)
+   - Template Mỹ Phẩm → Template cho Idol Sexy - Close-up (nhấn mạnh makeup)
+   - Template Điện Tử → Template cho Idol Sexy + Product
+
+3. Điều chỉnh các biến trong JSON để phù hợp:
+   - pose_style: Thêm "seductive", "alluring", "sensual" vào mô tả
+   - outfit_description: Thêm "form-fitting", "revealing", "sexy"
+   - overall_mood: Đổi thành "sensual", "alluring", "seductive"
+   - lighting_style: Đổi thành "soft romantic lighting" hoặc "dramatic side lighting"
+   - composition.framing: Chọn "half body" hoặc "close-up" cho gợi cảm hơn
+
+4. Thêm vào extra_instructions:
+   - "emphasizing feminine curves and attractive features"
+   - "sensual and alluring expression, seductive gaze"
+   - "appealing to male audience, irresistible charm"
+
+---
+
+Lưu ý khi sử dụng với Nano Banana Image:
+- Loại bỏ các từ liên quan đến video (dance, movement, BPM, camera movement)
+- Tập trung vào composition, lighting, và pose tĩnh
+- Thêm các từ khóa: "photo", "portrait", "photography", "high resolution", "detailed"
+- Chỉ định aspect ratio rõ ràng (9:16, 1:1, 4:5, etc.)
+- Nhấn mạnh visibility của sản phẩm
+- Sử dụng framing phù hợp (full body, half body, close-up)
+- Thêm quality keywords: "professional", "studio quality", "commercial", "magazine quality"
+
+Lưu ý đặc biệt cho ảnh Idol Sexy:
+- Sử dụng các từ khóa: "seductive", "alluring", "sensual", "captivating", "irresistible"
+- Nhấn mạnh: "feminine curves", "attractive features", "appealing to male audience"
+- Pose: "seductive pose", "alluring pose", "sensual expression", "sultry gaze"
+- Lighting: "soft romantic lighting", "dramatic side lighting", "rim lighting"
+- Outfit: "form-fitting", "body-hugging", "revealing", "sexy"
+- Mood: "sensual", "alluring", "seductive", "provocative", "mesmerizing"

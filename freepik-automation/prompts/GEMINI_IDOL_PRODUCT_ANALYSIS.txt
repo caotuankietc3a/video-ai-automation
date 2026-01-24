@@ -1,0 +1,78 @@
+IDOL_PRODUCT_IMAGE_ANALYSIS
+Phân tích ảnh idol và ảnh sản phẩm affiliate để tạo dữ liệu cấu trúc phục vụ tạo PROMPT cho Nano Banana Image Generation.
+
+Đầu vào:
+- 1 ảnh idol (idol là nhân vật chính, đứng rõ ràng trong khung hình).
+- 1 ảnh sản phẩm affiliate (sản phẩm cần quảng cáo, có thể là quần áo, phụ kiện, trang sức, điện tử, mỹ phẩm, v.v.).
+
+Yêu cầu:
+1. Phân tích idol:
+   - name: tên hoặc mô tả ngắn (nếu không biết tên, mô tả dạng "female idol", "male model", "young woman", v.v.).
+   - outfit_description: mô tả chi tiết trang phục hiện tại của idol, phụ kiện, chất liệu, độ bó/rộng, màu sắc.
+   - pose_style: dáng đứng/pose đặc trưng trong ảnh (ví dụ: "confident standing pose", "casual leaning pose", "elegant hand-on-hip pose").
+   - body_type: mô tả tổng quát dáng người (slim, curvy, athletic, muscular, petite, tall, v.v.).
+
+2. Phân tích sản phẩm (Product):
+   - name: tên sản phẩm (nếu có thể nhận diện, ví dụ: "wireless earbuds", "leather handbag", "gold necklace", "red lipstick", v.v.).
+   - category: loại sản phẩm (clothing, accessory, jewelry, electronics, cosmetics, footwear, watch, bag, v.v.).
+   - description: mô tả chi tiết sản phẩm - màu sắc, chất liệu, kiểu dáng, kích thước, đặc điểm nổi bật, thiết kế, logo/brand nếu có.
+   - placement: cách idol sẽ sử dụng/mặc/đeo sản phẩm (ví dụ: "wearing", "holding", "using", "displaying", "carrying", "adorned with").
+   - visibility: mức độ hiển thị sản phẩm trong ảnh cuối (prominent, featured, clearly visible, subtly integrated, v.v.).
+
+3. Bối cảnh/khung cảnh (BackgroundContext) phù hợp cho ảnh quảng cáo sản phẩm:
+   - location: mô tả nơi chốn phù hợp với sản phẩm và idol (ví dụ: "modern minimalist studio", "luxury fashion boutique", "urban street setting", "elegant home interior", "outdoor natural setting").
+   - environment_details: các chi tiết môi trường xung quanh (đồ nội thất, cây cối, tường, cửa sổ, đèn, v.v.).
+   - depth_and_space: cách bố trí không gian để idol và sản phẩm nổi bật (foreground/background separation, khoảng cách với background, khoảng trống xung quanh idol).
+
+4. Tông màu và không khí tổng thể (ColorMood) cho bối cảnh:
+   - primary_palette: danh sách 2-4 màu chính phù hợp với sản phẩm và idol (ví dụ: ["warm beige", "soft white", "elegant gray"]).
+   - accent_colors: danh sách màu phụ dùng để nhấn, có thể lấy từ màu sản phẩm (ví dụ: ["gold highlights", "rose gold accents"]).
+   - overall_mood: mô tả vibe tổng thể (elegant, modern, luxurious, casual, professional, youthful, sophisticated, v.v.).
+   - lighting_style: mô tả kiểu ánh sáng phù hợp (soft natural light, studio lighting, warm ambient light, dramatic side lighting, v.v.).
+
+5. Composition settings cho ảnh:
+   - aspect_ratio: tỷ lệ khung hình đề xuất (9:16 cho vertical/TikTok, 1:1 cho square/Instagram, 4:5 cho Instagram portrait).
+   - framing: cách framing đề xuất (full body, half body, close-up, three-quarter shot).
+
+6. Thêm gợi ý nếu cần để prompt tối ưu cho image generation, đảm bảo sản phẩm hiển thị rõ ràng.
+
+Định dạng trả về:
+- TRẢ VỀ DUY NHẤT MỘT JSON HỢP LỆ, KHÔNG GIẢI THÍCH THÊM.
+- Cấu trúc JSON:
+{
+  "idol": {
+    "name": string | null,
+    "outfit_description": string,
+    "pose_style": string,
+    "body_type": string | null
+  },
+  "product": {
+    "name": string,
+    "category": string,
+    "description": string,
+    "placement": string,
+    "visibility": string
+  },
+  "background": {
+    "location": string,
+    "environment_details": string,
+    "depth_and_space": string
+  },
+  "color_mood": {
+    "primary_palette": string[],
+    "accent_colors": string[],
+    "overall_mood": string,
+    "lighting_style": string
+  },
+  "composition": {
+    "aspect_ratio": string,
+    "framing": string
+  },
+  "extra_instructions": string | null
+}
+
+Lưu ý:
+- Bắt buộc JSON phải parse được, không chứa comment, không chứa text ngoài JSON.
+- Nếu không đủ thông tin cho một field, dùng null hoặc string mô tả tốt nhất có thể.
+- Tập trung vào việc làm nổi bật sản phẩm trong ảnh cuối cùng.
+- Đảm bảo placement và visibility phù hợp với loại sản phẩm.

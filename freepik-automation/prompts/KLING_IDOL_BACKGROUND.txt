@@ -29,3 +29,224 @@ The camera keeps the idol as the clear main subject with smooth,
 rhythm-synced motion, optimized for vertical short-form video.
 {extra_instructions_optional}
 
+---
+
+Template Background cho Vinahouse/Club Dance:
+
+A high-energy Vinahouse club dance video featuring {idol_name_segment}{idol_outfit_description},
+executing {dance_style} moves with {dance_energy_level} intensity
+at {dance_bpm} BPM. Set in {background_location} with {background_environment_details},
+featuring {background_depth_and_space}. Dominated by {primary_palette} tones
+accented with {accent_colors}, evoking a {overall_mood} vibe
+through {lighting_style} lighting. Dynamic camera follows the idol's movements,
+maintaining focus on the performer in vertical format.
+{extra_instructions_optional}
+
+---
+
+Template Background cho TikTok Dance:
+
+A vibrant TikTok dance video of {idol_name_segment}{idol_outfit_description},
+performing trendy {dance_style} choreography with {dance_energy_level} energy
+at {dance_bpm} BPM. Background: {background_location} enhanced by
+{background_environment_details}, arranged with {background_depth_and_space}.
+Color scheme emphasizes {primary_palette} highlighted by {accent_colors},
+creating a {overall_mood} aesthetic with {lighting_style} illumination.
+Camera movement syncs with the beat, keeping the idol centered
+in a vertical frame perfect for social media.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Sexy Dance:
+
+An alluring dance performance video starring {idol_name_segment}{idol_outfit_description},
+executing sensual {dance_style} movements with {dance_energy_level} energy
+at {dance_bpm} BPM. The setting is {background_location} featuring
+{background_environment_details}, with spatial arrangement: {background_depth_and_space}.
+Palette centers on {primary_palette} with {accent_colors} accents,
+establishing a {overall_mood} atmosphere through {lighting_style} lighting.
+Elegant camera work highlights the idol's form and motion,
+optimized for vertical viewing.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Hip-hop/Street Dance:
+
+A powerful street dance video showcasing {idol_name_segment}{idol_outfit_description},
+performing {dance_style} choreography with {dance_energy_level} energy
+at {dance_bpm} BPM. Location: {background_location} with
+{background_environment_details}, structured with {background_depth_and_space}.
+Color palette built on {primary_palette} with {accent_colors} highlights,
+conveying a {overall_mood} street vibe via {lighting_style} lighting.
+Raw, energetic camera angles capture the idol's dynamic performance
+in vertical format.
+{extra_instructions_optional}
+
+---
+
+Template Background cho K-pop Style:
+
+A polished K-pop style dance video of {idol_name_segment}{idol_outfit_description},
+executing precise {dance_style} choreography with {dance_energy_level} energy
+at {dance_bpm} BPM. Stage setting: {background_location} enhanced with
+{background_environment_details}, designed with {background_depth_and_space}.
+Visual palette combines {primary_palette} with {accent_colors} accents,
+creating a {overall_mood} performance atmosphere using {lighting_style} lighting.
+Professional camera work maintains idol as focal point,
+smoothly tracking movements in vertical frame.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Studio Dance:
+
+A clean studio dance video featuring {idol_name_segment}{idol_outfit_description},
+performing {dance_style} routine with {dance_energy_level} energy
+at {dance_bpm} BPM. Minimalist {background_location} setting with
+{background_environment_details}, arranged with {background_depth_and_space}.
+Color scheme uses {primary_palette} as base with {accent_colors} touches,
+establishing a {overall_mood} mood through {lighting_style} lighting.
+Focused camera framing keeps attention on the idol's technique,
+perfect for vertical video format.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Outdoor/Urban Dance:
+
+An urban outdoor dance video of {idol_name_segment}{idol_outfit_description},
+performing {dance_style} moves with {dance_energy_level} energy
+at {dance_bpm} BPM. Shot at {background_location} with
+{background_environment_details}, utilizing {background_depth_and_space}.
+Natural and artificial lighting blend {primary_palette} with {accent_colors},
+creating a {overall_mood} urban atmosphere with {lighting_style} effects.
+Cinematic camera movement follows the idol's performance,
+captured in vertical orientation.
+{extra_instructions_optional}
+
+================================================================================
+TEMPLATE PROMPT CHO IDOL + AFFILIATE PRODUCT
+================================================================================
+
+Input dữ liệu bổ sung cho Affiliate Product:
+- product.name: tên sản phẩm
+- product.category: loại sản phẩm (clothing, accessory, jewelry, electronics, cosmetics, etc.)
+- product.description: mô tả chi tiết sản phẩm (màu sắc, chất liệu, kiểu dáng, đặc điểm nổi bật)
+- product.placement: vị trí/cách sử dụng (wearing, holding, using, displaying, etc.)
+- product.visibility: mức độ hiển thị (prominent, subtle, featured, integrated)
+- product.highlight_moments: các khoảnh khắc cần highlight sản phẩm (optional)
+
+---
+
+Template cho Quần Áo (Clothing):
+
+A dynamic TikTok Vinahouse dance video of {idol_name_segment}wearing {product_description}
+as part of {idol_outfit_description}, performing a {dance_style} routine with
+{dance_energy_level} energy at around {dance_bpm} BPM. The {product_name} is
+{product_placement} and {product_visibility} throughout the performance.
+The scene takes place in {background_location}, surrounded by
+{background_environment_details}, with clear depth and space: {background_depth_and_space}.
+The color palette focuses on {primary_palette} with accent colors of {accent_colors},
+creating an overall {overall_mood} atmosphere using {lighting_style} lighting.
+Camera work ensures the {product_name} remains clearly visible while keeping
+the idol as the main subject, with smooth rhythm-synced motion optimized for vertical short-form video.
+{extra_instructions_optional}
+
+---
+
+Template cho Phụ Kiện (Accessories - Túi, Ví, Giày, Mũ):
+
+A vibrant dance video featuring {idol_name_segment}{idol_outfit_description}
+{product_placement} a stylish {product_name} - {product_description},
+performing {dance_style} choreography with {dance_energy_level} energy
+at {dance_bpm} BPM. The {product_name} is {product_visibility} showcased,
+complementing the idol's look. Background: {background_location} enhanced by
+{background_environment_details}, arranged with {background_depth_and_space}.
+Color scheme emphasizes {primary_palette} highlighted by {accent_colors},
+creating a {overall_mood} aesthetic with {lighting_style} illumination.
+Camera movement syncs with the beat, ensuring the {product_name} is clearly visible
+while keeping the idol centered in a vertical frame perfect for social media.
+{extra_instructions_optional}
+
+---
+
+Template cho Trang Sức (Jewelry - Vòng, Nhẫn, Dây Chuyền):
+
+An elegant dance performance video starring {idol_name_segment}{idol_outfit_description}
+adorned with {product_name} - {product_description}, performing {dance_style} moves
+with {dance_energy_level} energy at {dance_bpm} BPM. The {product_name} is
+{product_placement} and {product_visibility} catches the light during movements.
+The setting is {background_location} featuring {background_environment_details},
+with spatial arrangement: {background_depth_and_space}. Palette centers on
+{primary_palette} with {accent_colors} accents, establishing a {overall_mood} atmosphere
+through {lighting_style} lighting. Camera work highlights both the idol's form
+and the {product_name}'s details, optimized for vertical viewing.
+{extra_instructions_optional}
+
+---
+
+Template cho Điện Tử (Electronics - Điện Thoại, Tai Nghe, Đồng Hồ Thông Minh):
+
+A modern dance video showcasing {idol_name_segment}{idol_outfit_description}
+{product_placement} a {product_name} - {product_description}, executing
+{dance_style} choreography with {dance_energy_level} energy at {dance_bpm} BPM.
+The {product_name} is {product_visibility} featured, demonstrating its use
+during the performance. Location: {background_location} with
+{background_environment_details}, structured with {background_depth_and_space}.
+Color palette built on {primary_palette} with {accent_colors} highlights,
+conveying a {overall_mood} vibe via {lighting_style} lighting.
+Dynamic camera angles capture both the idol's performance and the {product_name}
+in action, captured in vertical format.
+{extra_instructions_optional}
+
+---
+
+Template cho Mỹ Phẩm (Cosmetics - Son, Phấn, Kem):
+
+A polished beauty-focused dance video of {idol_name_segment}{idol_outfit_description}
+showcasing {product_name} - {product_description}, performing {dance_style} routine
+with {dance_energy_level} energy at {dance_bpm} BPM. The {product_name} is
+{product_visibility} visible, highlighting its effect on the idol's appearance.
+Stage setting: {background_location} enhanced with {background_environment_details},
+designed with {background_depth_and_space}. Visual palette combines {primary_palette}
+with {accent_colors} accents, creating a {overall_mood} performance atmosphere
+using {lighting_style} lighting. Professional camera work maintains focus on
+the idol's face and the {product_name}'s impact, smoothly tracking movements
+in vertical frame.
+{extra_instructions_optional}
+
+---
+
+Template Tổng Quát (General Product Integration):
+
+A dynamic dance video featuring {idol_name_segment}{idol_outfit_description}
+{product_placement} {product_name} - {product_description}, performing
+{dance_style} choreography with {dance_energy_level} energy at {dance_bpm} BPM.
+The {product_name} is {product_visibility} integrated into the performance,
+seamlessly blending with the idol's movements. Background: {background_location}
+with {background_environment_details}, utilizing {background_depth_and_space}.
+Color scheme uses {primary_palette} as base with {accent_colors} touches,
+establishing a {overall_mood} mood through {lighting_style} lighting.
+Camera framing ensures the {product_name} remains clearly visible while
+keeping attention on the idol's performance, perfect for vertical video format.
+{extra_instructions_optional}
+
+---
+
+Template cho Sản Phẩm Nổi Bật (Prominent Product Showcase):
+
+A product showcase dance video starring {idol_name_segment}{idol_outfit_description}
+featuring the {product_name} - {product_description} as a central element.
+Performing {dance_style} moves with {dance_energy_level} energy at {dance_bpm} BPM,
+the idol {product_placement} the {product_name} which is prominently displayed
+throughout. The scene takes place in {background_location} with
+{background_environment_details}, arranged with {background_depth_and_space}
+to ensure the {product_name} stands out. Color palette emphasizes {primary_palette}
+with {accent_colors} accents, creating a {overall_mood} atmosphere using
+{lighting_style} lighting. Strategic camera angles and movements highlight
+the {product_name} at key moments while maintaining the idol as the main subject,
+optimized for vertical short-form video showcasing the product.
+{extra_instructions_optional}
+
