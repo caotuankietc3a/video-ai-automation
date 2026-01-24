@@ -301,10 +301,42 @@ class VEO3Flow:
         await self.browser.click(generate_button_selector)
         await asyncio.sleep(5)
     
-    async def _wait_for_video_completion(self) -> bool:
+    def _parse_time_to_seconds(self, time_str: str) -> Optional[int]:
+        try:
+            parts = time_str.strip().split(":")
+            if len(parts) == 2:
+                minutes = int(parts[0])
+                seconds = int(parts[1])
+                return minutes * 60 + seconds
+        except Exception:
+            pass
+        return None
+    
+    def _parse_duration_text(self, text: str) -> Optional[int]:
+        try:
+            if "/" in text:
+                parts = text.split("/")
+                if len(parts) == 2:
+                    duration_str = parts[1].strip()
+                    duration_seconds = self._parse_time_to_seconds(duration_str)
+                    return duration_seconds
+        except Exception:
+            pass
+        return None
+    
+    async def _wait_for_video_completion(self, project_config: Optional[Dict[str, Any]] = None, is_last_video: bool = False, video_index: int = 1) -> bool:
         max_wait = 600
         waited = 0
         check_interval = 3
+        expected_duration = None
+        
+        if is_last_video:
+            if project_config:
+                duration = project_config.get("duration", 0)
+                if isinstance(duration, int) and duration > 0:
+                    expected_duration = duration
+        else:
+            expected_duration = video_index * 8
         
         while waited < max_wait:
             result = await self.browser.evaluate("""
@@ -327,6 +359,27 @@ class VEO3Flow:
                         }
                     }
                     
+                    let durationText = null;
+                    const durationElements = document.querySelectorAll('div.sc-5a42c7b0-0, div[class*="ScqCi"], div[class*="koSpwT"]');
+                    for (let el of durationElements) {
+                        const text = el.textContent || '';
+                        if (text.includes('/') && text.match(/\\d+:\\d+/)) {
+                            durationText = text.trim();
+                            break;
+                        }
+                    }
+                    
+                    if (!durationText) {
+                        const allDivs = document.querySelectorAll('div');
+                        for (let el of allDivs) {
+                            const text = el.textContent || '';
+                            if (text.includes('/') && text.match(/\\d+:\\d+.*\\/.*\\d+:\\d+/)) {
+                                durationText = text.trim();
+                                break;
+                            }
+                        }
+                    }
+                    
                     const hasLoading = loadingPercent !== null || lottieContainer !== null;
                     
                     const videoElement = document.querySelector('video, [data-video], .video-result');
@@ -338,13 +391,69 @@ class VEO3Flow:
                         hasLoading: hasLoading,
                         hasVideo: hasVideo,
                         loadingText: loadingText,
+                        durationText: durationText,
                         isComplete: isComplete
                     };
                 }
             """)
             
-            if result.get("isComplete"):
-                return True
+            duration_text = result.get("durationText", "")
+            has_loading = result.get("hasLoading", False)
+            has_video = result.get("hasVideo", False)
+            
+            duration_sufficient = False
+            if duration_text:
+                duration_seconds = self._parse_duration_text(duration_text)
+                if duration_seconds is not None:
+                    if expected_duration:
+                        if duration_seconds >= expected_duration:
+                            duration_sufficient = True
+                            if not has_loading:
+                                if is_last_video:
+                                    print(f"✓ Video cuối cùng đã đủ duration: {duration_text} (yêu cầu: {expected_duration}s)")
+                                else:
+                                    print(f"✓ Video #{video_index} đã đủ duration: {duration_text} (yêu cầu: {expected_duration}s = {video_index} * 8)")
+                                return True
+                            else:
+                                if is_last_video:
+                                    print(f"Video cuối cùng đã đủ duration nhưng đang loading: {duration_text} (yêu cầu: {expected_duration}s)")
+                                else:
+                                    print(f"Video #{video_index} đã đủ duration nhưng đang loading: {duration_text} (yêu cầu: {expected_duration}s = {video_index} * 8)")
+                        else:
+                            if is_last_video:
+                                print(f"Video cuối cùng đang được tạo: {duration_text} (yêu cầu: {expected_duration}s, hiện tại: {duration_seconds}s)")
+                            else:
+                                print(f"Video #{video_index} đang được tạo: {duration_text} (yêu cầu: {expected_duration}s = {video_index} * 8, hiện tại: {duration_seconds}s)")
+                    else:
+                        if duration_seconds > 0:
+                            duration_sufficient = True
+                            if not has_loading:
+                                print(f"✓ Video đã đủ duration: {duration_text}")
+                                return True
+                            else:
+                                print(f"Video đã đủ duration nhưng đang loading: {duration_text}")
+                        else:
+                            print(f"Video đang được tạo: {duration_text}")
+            
+            if result.get("isComplete") and has_video and not has_loading:
+                if expected_duration:
+                    if duration_text:
+                        duration_seconds = self._parse_duration_text(duration_text)
+                        if duration_seconds is not None and duration_seconds >= expected_duration:
+                            return True
+                        else:
+                            print(f"⚠ Video đã hoàn thành nhưng duration chưa đủ: {duration_text} (yêu cầu: {expected_duration}s)")
+                            await asyncio.sleep(check_interval)
+                            waited += check_interval
+                            continue
+                    else:
+                        print(f"⚠ Video đã hoàn thành nhưng không tìm thấy duration text (yêu cầu: {expected_duration}s)")
+                        await asyncio.sleep(check_interval)
+                        waited += check_interval
+                        continue
+                else:
+                    if duration_sufficient or not duration_text:
+                        return True
             
             loading_text = result.get("loadingText", "")
             if loading_text and "%" in loading_text:
@@ -577,7 +686,7 @@ class VEO3Flow:
             print(f"Warning: Không thể click video: {e}")
             return False
     
-    async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any], is_first_video: bool = True, on_project_link_updated: Optional[Callable[[str, str], None]] = None) -> Optional[Dict[str, Any]]:
+    async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any], is_first_video: bool = True, is_last_video: bool = False, video_index: int = 1, on_project_link_updated: Optional[Callable[[str, str], None]] = None) -> Optional[Dict[str, Any]]:
         try:
             if is_first_video:
                 print("[Step 1/6] Khởi động browser...")
@@ -653,7 +762,7 @@ class VEO3Flow:
             print("[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video" if is_first_video else "[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video")
             
             print("[Step 6/6] Đang chờ video hoàn thành..." if is_first_video else "[Step 6/6] Đang chờ video hoàn thành...")
-            is_complete = await self._wait_for_video_completion()
+            is_complete = await self._wait_for_video_completion(project_config, is_last_video=is_last_video, video_index=video_index)
             if is_complete:
                 print("[Step 6/6] ✓ Video đã hoàn thành" if is_first_video else "[Step 6/6] ✓ Video đã hoàn thành")
             else:
@@ -727,7 +836,7 @@ class VEO3Flow:
         project_config["current_scene_index"] = "retry"
         try:
             if use_browser:
-                video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=False)
+                video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=False, is_last_video=True, video_index=1)
                 if isinstance(video_result, dict):
                     video_url = video_result.get("video_url")
                     video_path = video_result.get("video_path")
@@ -788,7 +897,7 @@ class VEO3Flow:
             
             try:
                 if use_browser:
-                    video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=is_first_video, on_project_link_updated=on_project_link_updated)
+                    video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=is_first_video, is_last_video=is_last_video, video_index=i+1, on_project_link_updated=on_project_link_updated)
                     if isinstance(video_result, dict):
                         video_url = video_result.get("video_url")
                         success = video_result.get("success", False)
