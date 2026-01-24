@@ -975,6 +975,35 @@ class VEO3Flow:
                 "video_path": None
             }
     
+    def _save_video_to_project(self, video_data: Dict[str, Any], project_config: Dict[str, Any]) -> None:
+        try:
+            from ..data.project_manager import project_manager
+            project_file = project_config.get("file", "")
+            if project_file:
+                project = project_manager.load_project(project_file)
+                if project:
+                    existing_videos = project.get("videos", [])
+                    if not isinstance(existing_videos, list):
+                        existing_videos = []
+                    
+                    scene_id = video_data.get("scene_id")
+                    existing_video_index = None
+                    for idx, ev in enumerate(existing_videos):
+                        if isinstance(ev, dict) and ev.get("scene_id") == scene_id:
+                            existing_video_index = idx
+                            break
+                    
+                    if existing_video_index is not None:
+                        existing_videos[existing_video_index] = video_data
+                    else:
+                        existing_videos.append(video_data)
+                    
+                    project["videos"] = existing_videos
+                    project_manager.save_project(project)
+                    print(f"✓ Đã lưu video {scene_id} vào project")
+        except Exception as e:
+            print(f"⚠ Lỗi khi lưu video vào project: {e}")
+    
     async def generate_videos(self, prompts: List[str], project_config: Dict[str, Any], use_browser: bool = True, on_video_generated: Optional[Callable[[List[Dict[str, Any]]], None]] = None, on_project_link_updated: Optional[Callable[[str, str], None]] = None) -> List[Dict[str, Any]]:
         results = []
         total_prompts = len(prompts)
@@ -1009,6 +1038,7 @@ class VEO3Flow:
                             "project_link": project_link
                         }
                         results.append(video_data)
+                        self._save_video_to_project(video_data, project_config)
                         
                         if on_video_generated:
                             try:
@@ -1024,6 +1054,7 @@ class VEO3Flow:
                             "video_path": None
                         }
                         results.append(video_data)
+                        self._save_video_to_project(video_data, project_config)
                         
                         if on_video_generated:
                             try:
@@ -1040,6 +1071,7 @@ class VEO3Flow:
                         "video_path": None
                     }
                     results.append(video_data)
+                    self._save_video_to_project(video_data, project_config)
                     
                     if on_video_generated:
                         try:
@@ -1057,28 +1089,13 @@ class VEO3Flow:
                     "video_path": None
                 }
                 results.append(video_data)
+                self._save_video_to_project(video_data, project_config)
                 
                 if on_video_generated:
                     try:
                         on_video_generated(results.copy())
                     except Exception as e:
                         print(f"Lỗi khi gọi callback on_video_generated: {e}")
-        
-        # if use_browser and len(results) > 0:
-        #     last_result = results[-1]
-        #     if last_result.get("status") == "SUCCESSFUL":
-        #         print(f"\n📥 Đang download video scene cuối cùng...")
-        #         last_scene_id = last_result.get("scene_id", f"scene_{len(results)}")
-        #         video_path = await self._download_videos_from_blob(project_config, last_scene_id)
-        #         if video_path:
-        #             results[-1]["video_path"] = video_path
-        #             print(f"✅ Đã download video scene cuối: {video_path}")
-        #             
-        #             if on_video_generated:
-        #                 try:
-        #                     on_video_generated(results.copy())
-        #                 except Exception as e:
-        #                     print(f"Lỗi khi gọi callback: {e}")
         
         return results
 
