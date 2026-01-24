@@ -324,7 +324,7 @@ class VEO3Flow:
             pass
         return None
     
-    async def _wait_for_video_completion(self, project_config: Optional[Dict[str, Any]] = None, is_last_video: bool = False, video_index: int = 1) -> bool:
+    async def _wait_for_video_completion(self, project_config: Optional[Dict[str, Any]] = None, is_last_video: bool = False, video_index: int = 1) -> Dict[str, Any]:
         max_wait = 600
         waited = 0
         check_interval = 3
@@ -413,7 +413,7 @@ class VEO3Flow:
                                     print(f"✓ Video cuối cùng đã đủ duration: {duration_text} (yêu cầu: {expected_duration}s)")
                                 else:
                                     print(f"✓ Video #{video_index} đã đủ duration: {duration_text} (yêu cầu: {expected_duration}s = {video_index} * 8)")
-                                return True
+                                return {"complete": True, "needs_restart": False}
                             else:
                                 if is_last_video:
                                     print(f"Video cuối cùng đã đủ duration nhưng đang loading: {duration_text} (yêu cầu: {expected_duration}s)")
@@ -440,20 +440,18 @@ class VEO3Flow:
                     if duration_text:
                         duration_seconds = self._parse_duration_text(duration_text)
                         if duration_seconds is not None and duration_seconds >= expected_duration:
-                            return True
+                            return {"complete": True, "needs_restart": False}
                         else:
                             print(f"⚠ Video đã hoàn thành nhưng duration chưa đủ: {duration_text} (yêu cầu: {expected_duration}s)")
-                            await asyncio.sleep(check_interval)
-                            waited += check_interval
-                            continue
+                            return {"complete": True, "needs_restart": True, "reason": "duration_insufficient"}
                     else:
                         print(f"⚠ Video đã hoàn thành nhưng không tìm thấy duration text (yêu cầu: {expected_duration}s)")
-                        await asyncio.sleep(check_interval)
-                        waited += check_interval
-                        continue
+                        return {"complete": True, "needs_restart": True, "reason": "duration_text_missing"}
                 else:
                     if duration_sufficient or not duration_text:
-                        return True
+                        return {"complete": True, "needs_restart": False}
+                    else:
+                        return {"complete": True, "needs_restart": False}
             
             loading_text = result.get("loadingText", "")
             if loading_text and "%" in loading_text:
@@ -686,12 +684,17 @@ class VEO3Flow:
             print(f"Warning: Không thể click video: {e}")
             return False
     
-    async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any], is_first_video: bool = True, is_last_video: bool = False, video_index: int = 1, on_project_link_updated: Optional[Callable[[str, str], None]] = None) -> Optional[Dict[str, Any]]:
+    async def generate_video_via_browser(self, prompt: str, project_config: Dict[str, Any], is_first_video: bool = True, is_last_video: bool = False, video_index: int = 1, on_project_link_updated: Optional[Callable[[str, str], None]] = None, retry_count: int = 0) -> Optional[Dict[str, Any]]:
         try:
             if is_first_video:
                 print("[Step 1/6] Khởi động browser...")
-                await self.browser.start()
-                print("[Step 1/6] ✓ Browser đã khởi động")
+                clear_cookies = project_config.get("clear_cookies_on_retry", False)
+                await self.browser.start(clear_cookies=clear_cookies)
+                if clear_cookies:
+                    project_config["clear_cookies_on_retry"] = False
+                    print("[Step 1/6] ✓ Browser đã khởi động với cookies đã được clear")
+                else:
+                    print("[Step 1/6] ✓ Browser đã khởi động")
                 
                 print("[Step 2/6] Điều hướng đến project...")
                 is_new_project = await self._navigate_to_project(project_config)
@@ -762,7 +765,11 @@ class VEO3Flow:
             print("[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video" if is_first_video else "[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video")
             
             print("[Step 6/6] Đang chờ video hoàn thành..." if is_first_video else "[Step 6/6] Đang chờ video hoàn thành...")
-            is_complete = await self._wait_for_video_completion(project_config, is_last_video=is_last_video, video_index=video_index)
+            completion_result = await self._wait_for_video_completion(project_config, is_last_video=is_last_video, video_index=video_index)
+            is_complete = completion_result.get("complete", False)
+            needs_restart = completion_result.get("needs_restart", False)
+            restart_reason = completion_result.get("reason", "")
+            
             if is_complete:
                 print("[Step 6/6] ✓ Video đã hoàn thành" if is_first_video else "[Step 6/6] ✓ Video đã hoàn thành")
             else:
@@ -774,6 +781,90 @@ class VEO3Flow:
                 print(f"✓ Đã trích xuất video URL: {video_url[:50]}...")
             else:
                 print("⚠ Không thể trích xuất video URL")
+            
+            if needs_restart and video_url:
+                max_retries = 3
+                if retry_count >= max_retries:
+                    print(f"⚠ Đã retry {max_retries} lần nhưng vẫn gặp vấn đề: {restart_reason}, dừng retry và trả về video PARTIAL")
+                    try:
+                        from ..data.project_manager import project_manager
+                        project_file = project_config.get("file", "")
+                        if project_file:
+                            project = project_manager.load_project(project_file)
+                            if project:
+                                existing_videos = project.get("videos", [])
+                                if not isinstance(existing_videos, list):
+                                    existing_videos = []
+                                
+                                video_data = {
+                                    "scene_id": f"scene_{video_index}",
+                                    "prompt": prompt,
+                                    "status": "PARTIAL",
+                                    "video_url": video_url,
+                                    "video_path": None,
+                                    "project_link": project_config.get("project_link", ""),
+                                    "note": f"Video đã tạo nhưng {restart_reason} (đã retry {max_retries} lần)"
+                                }
+                                existing_videos.append(video_data)
+                                project["videos"] = existing_videos
+                                project_manager.save_project(project)
+                                print(f"✓ Đã lưu video vào project: {video_data['scene_id']}")
+                    except Exception as e:
+                        print(f"⚠ Lỗi khi lưu video vào project: {e}")
+                    
+                    return {
+                        "video_url": video_url,
+                        "video_path": None,
+                        "success": False,
+                        "project_link": project_config.get("project_link", "")
+                    }
+                
+                print(f"⚠ Phát hiện vấn đề: {restart_reason}, đang lưu video và retry scene {retry_count + 1}/{max_retries} với browser mới (clear cookies)...")
+                try:
+                    from ..data.project_manager import project_manager
+                    project_file = project_config.get("file", "")
+                    if project_file:
+                        project = project_manager.load_project(project_file)
+                        if project:
+                            existing_videos = project.get("videos", [])
+                            if not isinstance(existing_videos, list):
+                                existing_videos = []
+                            
+                            video_data = {
+                                "scene_id": f"scene_{video_index}",
+                                "prompt": prompt,
+                                "status": "PARTIAL",
+                                "video_url": video_url,
+                                "video_path": None,
+                                "project_link": project_config.get("project_link", ""),
+                                "note": f"Video đã tạo nhưng {restart_reason} (retry {retry_count + 1}/{max_retries})"
+                            }
+                            existing_videos.append(video_data)
+                            project["videos"] = existing_videos
+                            project_manager.save_project(project)
+                            print(f"✓ Đã lưu video vào project: {video_data['scene_id']}")
+                except Exception as e:
+                    print(f"⚠ Lỗi khi lưu video vào project: {e}")
+                
+                try:
+                    await self.browser.stop()
+                    print("✓ Đã đóng browser")
+                except Exception as e:
+                    print(f"⚠ Lỗi khi đóng browser: {e}")
+                
+                print(f"🔄 Đang retry scene {video_index} lần {retry_count + 1}/{max_retries} với browser mới (clear cookies)...")
+                project_config["clear_cookies_on_retry"] = True
+                await asyncio.sleep(2)
+                
+                return await self.generate_video_via_browser(
+                    prompt, 
+                    project_config, 
+                    is_first_video=is_first_video, 
+                    is_last_video=is_last_video, 
+                    video_index=video_index, 
+                    on_project_link_updated=on_project_link_updated,
+                    retry_count=retry_count + 1
+                )
             
             current_url = await self.browser.get_current_url()
             current_project_link = project_config.get("project_link", "")
@@ -833,7 +924,6 @@ class VEO3Flow:
     
     async def retry_video(self, prompt: str, project_config: Dict[str, Any], use_browser: bool = True) -> Dict[str, Any]:
         scene_id = f"scene_retry"
-        project_config["current_scene_index"] = "retry"
         try:
             if use_browser:
                 video_result = await self.generate_video_via_browser(prompt, project_config, is_first_video=False, is_last_video=True, video_index=1)
@@ -893,7 +983,6 @@ class VEO3Flow:
             scene_id = f"scene_{i+1}"
             is_first_video = (i == 0)
             is_last_video = (i == total_prompts - 1)
-            project_config["current_scene_index"] = i + 1
             
             try:
                 if use_browser:

@@ -43,8 +43,8 @@ class BrowserAutomation:
         os.makedirs(COOKIES_DIR, exist_ok=True)
         logger.info(f"BrowserAutomation instance created: {self.instance_id}")
     
-    async def start(self):
-        if self._is_page_valid():
+    async def start(self, clear_cookies: bool = False):
+        if self._is_page_valid() and not clear_cookies:
             return
         try:
             if self.browser:
@@ -61,7 +61,7 @@ class BrowserAutomation:
                 f'--window-size={self.window_width},{self.window_height}',
             ])
         
-        storage_state = self._load_cookies()
+        storage_state = None if clear_cookies else self._load_cookies()
         
         self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
@@ -75,7 +75,10 @@ class BrowserAutomation:
         self.page = await self.context.new_page()
         self.page.set_default_timeout(self.timeout)
         
-        logger.info(f"Browser started for instance: {self.instance_id}")
+        if clear_cookies:
+            logger.info(f"Browser started with cleared cookies for instance: {self.instance_id}")
+        else:
+            logger.info(f"Browser started for instance: {self.instance_id}")
         
         if not self.headless and platform.system() == 'Darwin':
             await self._set_window_position_mac()
