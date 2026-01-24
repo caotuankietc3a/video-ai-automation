@@ -13,6 +13,87 @@ class VEO3Flow:
         self.gemini_client = GeminiClient()
         self.flow_url = "https://labs.google/fx/tools/flow"
     
+    def _extract_project_id(self, url: str) -> Optional[str]:
+        if not url or "/project/" not in url:
+            return None
+        try:
+            parts = url.split("/project/")
+            if len(parts) > 1:
+                project_id = parts[1].split("/")[0].split("?")[0]
+                return project_id
+        except Exception:
+            pass
+        return None
+    
+    def _extract_scene_id(self, url: str) -> Optional[str]:
+        if not url or "/scenes/" not in url:
+            return None
+        try:
+            parts = url.split("/scenes/")
+            if len(parts) > 1:
+                scene_id = parts[1].split("/")[0].split("?")[0]
+                return scene_id
+        except Exception:
+            pass
+        return None
+    
+    async def _ensure_correct_project(self, project_config: Dict[str, Any]) -> bool:
+        project_link = project_config.get("project_link", "")
+        if not project_link:
+            return False
+        
+        try:
+            current_url = await self.browser.get_current_url()
+            expected_project_id = self._extract_project_id(project_link)
+            expected_scene_id = self._extract_scene_id(project_link)
+            
+            if not expected_project_id:
+                return False
+            
+            current_project_id = self._extract_project_id(current_url or "")
+            current_scene_id = self._extract_scene_id(current_url or "")
+            
+            project_match = current_project_id == expected_project_id
+            scene_match = (expected_scene_id is None) or (current_scene_id == expected_scene_id)
+            
+            if not project_match or not scene_match:
+                print(f"⚠ Browser không ở đúng project/scene, đang navigate lại...")
+                await self.browser.navigate(project_link)
+                await asyncio.sleep(3)
+                await self.browser.login_to_google()
+                await asyncio.sleep(2)
+                
+                current_url = await self.browser.get_current_url()
+                if current_url and "/project/" in current_url:
+                    if "/scenes/" in current_url:
+                        updated_link = current_url.split("?")[0]
+                        project_config["project_link"] = updated_link
+                        from ..data.project_manager import project_manager
+                        project_file = project_config.get("file", "")
+                        if project_file:
+                            project_manager.update_project(project_file, {"project_link": updated_link})
+                    elif "/scenes/" not in current_url:
+                        updated_link = await self._click_scenebuilder()
+                        if updated_link:
+                            project_config["project_link"] = updated_link
+                            from ..data.project_manager import project_manager
+                            project_file = project_config.get("file", "")
+                            if project_file:
+                                project_manager.update_project(project_file, {"project_link": updated_link})
+                return True
+            elif current_url and "/scenes/" in current_url:
+                updated_link = current_url.split("?")[0]
+                if updated_link != project_link:
+                    project_config["project_link"] = updated_link
+                    from ..data.project_manager import project_manager
+                    project_file = project_config.get("file", "")
+                    if project_file:
+                        project_manager.update_project(project_file, {"project_link": updated_link})
+            return True
+        except Exception as e:
+            print(f"Warning: Không thể đảm bảo đúng project: {e}")
+            return False
+    
     async def _navigate_to_project(self, project_config: Dict[str, Any]) -> bool:
         browser = self.browser
         project_link = project_config.get("project_link", "")
@@ -23,6 +104,23 @@ class VEO3Flow:
             await asyncio.sleep(3)
             await browser.login_to_google()
             await asyncio.sleep(2)
+            
+            current_url = await browser.get_current_url()
+            if current_url and "/project/" in current_url:
+                if "/scenes/" not in current_url and "/scenes/" not in project_link:
+                    updated_link = await self._click_scenebuilder()
+                    if updated_link:
+                        project_config["project_link"] = updated_link
+                        from ..data.project_manager import project_manager
+                        project_file = project_config.get("file", "")
+                        if project_file:
+                            project_manager.update_project(project_file, {"project_link": updated_link})
+                elif "/scenes/" in current_url:
+                    project_config["project_link"] = current_url
+                    from ..data.project_manager import project_manager
+                    project_file = project_config.get("file", "")
+                    if project_file:
+                        project_manager.update_project(project_file, {"project_link": current_url})
         else:
             is_new_project = True
             await browser.navigate(self.flow_url)
@@ -43,8 +141,15 @@ class VEO3Flow:
             
             current_url = await browser.get_current_url()
             if current_url and "/project/" in current_url:
-                project_id = current_url.split("/project/")[-1].split("?")[0]
-                project_link = f"https://labs.google/fx/tools/flow/project/{project_id}"
+                if "/scenes/" in current_url:
+                    project_link = current_url.split("?")[0]
+                else:
+                    project_id = current_url.split("/project/")[-1].split("?")[0]
+                    project_link = f"https://labs.google/fx/tools/flow/project/{project_id}"
+                    updated_link = await self._click_scenebuilder()
+                    if updated_link:
+                        project_link = updated_link
+                
                 project_config["project_link"] = project_link
                 from ..data.project_manager import project_manager
                 project_file = project_config.get("file", "")
@@ -53,7 +158,7 @@ class VEO3Flow:
         
         return is_new_project
     
-    async def _click_scenebuilder(self):
+    async def _click_scenebuilder(self) -> Optional[str]:
         try:
             scenebuilder_button_selector = (
                 'button:has-text("Scenebuilder"), '
@@ -63,10 +168,14 @@ class VEO3Flow:
             await self.browser.wait_for_selector(scenebuilder_button_selector, timeout=10000)
             await self.browser.click(scenebuilder_button_selector)
             await asyncio.sleep(2)
-            return True
+            
+            current_url = await self.browser.get_current_url()
+            if current_url and "/scenes/" in current_url:
+                return current_url
+            return None
         except Exception as e:
             print(f"Warning: Không thể click Scenebuilder: {e}, tiếp tục bình thường")
-            return False
+            return None
     
     async def _configure_outputs_per_prompt(self, project_config: Dict[str, Any]):
         outputs_per_prompt = project_config.get("outputs_per_prompt", 2)
@@ -486,37 +595,69 @@ class VEO3Flow:
                     except Exception as e:
                         print(f"Warning: Không thể gọi callback on_project_link_updated: {e}")
                 
-                print("[Step 3/6] Click nút Scenebuilder...")
-                await self._click_scenebuilder()
-                print("[Step 3/6] ✓ Đã click Scenebuilder")
+                current_url = await self.browser.get_current_url()
+                if current_url and "/scenes/" not in current_url:
+                    print("[Step 3/6] Click nút Scenebuilder...")
+                    updated_project_link = await self._click_scenebuilder()
+                    if updated_project_link:
+                        project_config["project_link"] = updated_project_link
+                        from ..data.project_manager import project_manager
+                        project_file = project_config.get("file", "")
+                        if project_file:
+                            project_manager.update_project(project_file, {"project_link": updated_project_link})
+                        if on_project_link_updated:
+                            try:
+                                on_project_link_updated("", updated_project_link)
+                            except Exception as e:
+                                print(f"Warning: Không thể gọi callback on_project_link_updated: {e}")
+                        print("[Step 3/6] ✓ Đã click Scenebuilder và cập nhật project link")
+                    else:
+                        print("[Step 3/6] ⚠ Không thể click Scenebuilder, tiếp tục với project link hiện tại")
+                else:
+                    if current_url and "/scenes/" in current_url:
+                        project_config["project_link"] = current_url.split("?")[0]
+                        from ..data.project_manager import project_manager
+                        project_file = project_config.get("file", "")
+                        if project_file:
+                            project_manager.update_project(project_file, {"project_link": current_url.split("?")[0]})
+                        if on_project_link_updated:
+                            try:
+                                on_project_link_updated("", current_url.split("?")[0])
+                            except Exception as e:
+                                print(f"Warning: Không thể gọi callback on_project_link_updated: {e}")
+                    print("[Step 3/6] ✓ Đã ở Scene Builder")
                 
                 print("[Step 4/6] Cấu hình aspect ratio...")
                 await self._configure_aspect_ratio(project_config)
                 print("[Step 4/6] ✓ Đã cấu hình aspect ratio")
             else:
-                print("[Step 1/4] Kéo slider đến scene cuối cùng...")
-                await self._scroll_to_last_scene()
-                print("[Step 1/4] ✓ Đã kéo slider đến cuối")
+                print("[Step 1/4] Đảm bảo browser ở đúng project...")
+                await self._ensure_correct_project(project_config)
+                print("[Step 1/4] ✓ Đã đảm bảo browser ở đúng project")
                 
-                print("[Step 2/4] Click vào video hiện tại...")
+                print("[Step 2/4] Kéo slider đến scene cuối cùng...")
+                await self._scroll_to_last_scene()
+                print("[Step 2/4] ✓ Đã kéo slider đến cuối")
+                
+                print("[Step 3/4] Click vào video hiện tại...")
                 await self._click_current_video()
                 await asyncio.sleep(1)
-                print("[Step 2/4] ✓ Đã click video hiện tại")
+                print("[Step 3/4] ✓ Đã click video hiện tại")
             
-            print("[Step 4.5/6] Cấu hình số lượng outputs per prompt..." if is_first_video else "[Step 2.5/4] Cấu hình số lượng outputs per prompt...")
+            print("[Step 4.5/6] Cấu hình số lượng outputs per prompt..." if is_first_video else "[Step 4/6] Cấu hình số lượng outputs per prompt...")
             await self._configure_outputs_per_prompt(project_config)
-            print("[Step 4.5/6] ✓ Đã cấu hình outputs per prompt" if is_first_video else "[Step 2.5/4] ✓ Đã cấu hình outputs per prompt")
+            print("[Step 4.5/6] ✓ Đã cấu hình outputs per prompt" if is_first_video else "[Step 4/6] ✓ Đã cấu hình outputs per prompt")
 
-            print("[Step 5/6] Điền prompt và tạo video..." if is_first_video else "[Step 3/4] Điền prompt và tạo video...")
+            print("[Step 5/6] Điền prompt và tạo video..." if is_first_video else "[Step 5/6] Điền prompt và tạo video...")
             await self._fill_prompt_and_generate(prompt)
-            print("[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video" if is_first_video else "[Step 3/4] ✓ Đã điền prompt và bắt đầu tạo video")
+            print("[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video" if is_first_video else "[Step 5/6] ✓ Đã điền prompt và bắt đầu tạo video")
             
-            print("[Step 6/6] Đang chờ video hoàn thành..." if is_first_video else "[Step 4/4] Đang chờ video hoàn thành...")
+            print("[Step 6/6] Đang chờ video hoàn thành..." if is_first_video else "[Step 6/6] Đang chờ video hoàn thành...")
             is_complete = await self._wait_for_video_completion()
             if is_complete:
-                print("[Step 6/6] ✓ Video đã hoàn thành" if is_first_video else "[Step 4/4] ✓ Video đã hoàn thành")
+                print("[Step 6/6] ✓ Video đã hoàn thành" if is_first_video else "[Step 6/6] ✓ Video đã hoàn thành")
             else:
-                print("[Step 6/6] ⚠ Video chưa hoàn thành (timeout)" if is_first_video else "[Step 4/4] ⚠ Video chưa hoàn thành (timeout)")
+                print("[Step 6/6] ⚠ Video chưa hoàn thành (timeout)" if is_first_video else "[Step 6/6] ⚠ Video chưa hoàn thành (timeout)")
             
             print("Đang trích xuất video URL...")
             video_url = await self._extract_video_result()
@@ -525,11 +666,30 @@ class VEO3Flow:
             else:
                 print("⚠ Không thể trích xuất video URL")
             
+            current_url = await self.browser.get_current_url()
+            current_project_link = project_config.get("project_link", "")
+            
+            if current_url and "/scenes/" in current_url:
+                updated_link = current_url.split("?")[0]
+                if updated_link != current_project_link:
+                    current_project_link = updated_link
+                    project_config["project_link"] = updated_link
+                    from ..data.project_manager import project_manager
+                    project_file = project_config.get("file", "")
+                    if project_file:
+                        project_manager.update_project(project_file, {"project_link": updated_link})
+            
+            if current_project_link:
+                from ..data.project_manager import project_manager
+                project_file = project_config.get("file", "")
+                if project_file:
+                    project_manager.update_project(project_file, {"project_link": current_project_link})
+            
             return {
                 "video_url": video_url,
                 "video_path": None,
                 "success": is_complete,
-                "project_link": project_config.get("project_link", "")
+                "project_link": current_project_link
             }
             
         except Exception as e:
@@ -574,7 +734,7 @@ class VEO3Flow:
                     success = video_result.get("success", False)
                     project_link = video_result.get("project_link", "")
                     
-                    if project_link and not project_config.get("project_link"):
+                    if project_link:
                         project_config["project_link"] = project_link
                         from ..data.project_manager import project_manager
                         project_file = project_config.get("file", "")
@@ -634,7 +794,7 @@ class VEO3Flow:
                         success = video_result.get("success", False)
                         project_link = video_result.get("project_link", "")
                         
-                        if project_link and not project_config.get("project_link"):
+                        if project_link:
                             project_config["project_link"] = project_link
                             from ..data.project_manager import project_manager
                             project_file = project_config.get("file", "")
