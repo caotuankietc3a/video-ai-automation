@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -26,6 +27,9 @@ class GeminiAnalysisConfig:
     response_selector: str
 
 
+logger = logging.getLogger(__name__)
+
+
 class GeminiIdolAnalyzer:
     def __init__(self, config: GeminiAnalysisConfig):
         self._config = config
@@ -35,22 +39,34 @@ class GeminiIdolAnalyzer:
         idol_image_path: Path,
         dance_video_path: Path,
     ) -> KlingPromptData:
+        logger.info("Gemini analyze: Mở browser, vào %s", self._config.url)
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=False)
             context = await browser.new_context()
             page = await context.new_page()
 
             await page.goto(self._config.url)
+            logger.info("Gemini analyze: Đã load trang")
 
             prompt_text = self._config.prompt_file.read_text(encoding="utf-8")
-
+            logger.info("Gemini analyze: Mở menu upload...")
+            await page.click('button[aria-label="Open upload file menu"]')
+            await asyncio.sleep(0.5)
+            logger.info("Gemini analyze: Click nút Upload files...")
+            await page.click(
+                'button[data-test-id="local-images-files-uploader-button"]',
+            )
+            await asyncio.sleep(0.5)
+            logger.info("Gemini analyze: Gán file idol image + dance video...")
             await page.set_input_files(
                 self._config.upload_input_selector,
                 [str(idol_image_path), str(dance_video_path)],
             )
+            logger.info("Gemini analyze: Đã upload idol image + dance video")
 
             await page.fill(self._config.textarea_selector, prompt_text)
             await page.keyboard.press("Enter")
+            logger.info("Gemini analyze: Đã gửi prompt, đợi phản hồi...")
 
             await asyncio.sleep(10)
 
@@ -62,8 +78,11 @@ class GeminiIdolAnalyzer:
             if content is None:
                 raise RuntimeError("Không đọc được nội dung trả về từ Gemini")
 
+            logger.info("Gemini analyze: Đã nhận phản hồi, parse JSON...")
             parsed = self._parse_json_from_text(content)
-            return self._to_kling_data(parsed)
+            data = self._to_kling_data(parsed)
+            logger.info("Gemini analyze: Xong, trả về KlingPromptData")
+            return data
 
     def _parse_json_from_text(self, text: str) -> dict:
         stripped = text.strip()

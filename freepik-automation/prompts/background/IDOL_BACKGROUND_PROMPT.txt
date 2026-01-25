@@ -1,0 +1,212 @@
+Background Only Prompt Template
+Tạo prompt để generate background scene only, không có người/idol
+
+Input dữ liệu:
+- background.location
+- background.environment_details
+- background.depth_and_space
+- color_mood.primary_palette
+- color_mood.accent_colors
+- color_mood.overall_mood
+- color_mood.lighting_style
+- extra_instructions (optional)
+
+Lưu ý: Template này chỉ tạo background scene, KHÔNG có người, idol, hoặc nhân vật nào trong ảnh/video.
+
+================================================================================
+HƯỚNG DẪN ĐIỀN INPUT TỪ JSON
+================================================================================
+
+Sau khi có JSON từ Gemini AI phân tích, mapping như sau:
+
+1. Background Information:
+   - {background_location} → json.background.location
+   - {background_environment_details} → json.background.environment_details
+   - {background_depth_and_space} → json.background.depth_and_space
+
+2. Color Mood Information:
+   - {primary_palette} → ", ".join(json.color_mood.primary_palette)
+     Ví dụ: ["electric blue", "magenta"] → "electric blue, magenta"
+   - {accent_colors} → ", ".join(json.color_mood.accent_colors)
+     Ví dụ: ["neon green", "warm gold highlights"] → "neon green, warm gold highlights"
+   - {overall_mood} → json.color_mood.overall_mood
+   - {lighting_style} → json.color_mood.lighting_style
+
+3. Extra Instructions:
+   - {extra_instructions_optional} → 
+     * Nếu json.extra_instructions có giá trị: json.extra_instructions
+     * Nếu json.extra_instructions là null: "" (bỏ qua)
+
+Lưu ý: Chọn template phù hợp với loại background bạn muốn tạo.
+
+   Chọn template theo loại background bạn muốn tạo:
+   
+   - Template Background Cơ Bản → Cho background tổng quát
+   - Template Background cho Vinahouse/Club → Cho club/party background
+   - Template Background cho TikTok → Cho social media background
+   - Template Background cho Studio → Cho studio/minimalist background
+   - Template Background cho Outdoor/Urban → Cho outdoor/street background
+   - Template Background cho K-pop Style → Cho stage/performance background
+
+Ví dụ mapping cụ thể:
+
+JSON Input:
+{
+  "background": {
+    "location": "neon-lit rooftop in a modern Asian city",
+    "environment_details": "LED strips, city lights in background, urban atmosphere",
+    "depth_and_space": "wide open space with cityscape in background, clear depth layers"
+  },
+  "color_mood": {
+    "primary_palette": ["electric blue", "magenta", "deep purple"],
+    "accent_colors": ["neon green", "warm gold highlights"],
+    "overall_mood": "energetic party",
+    "lighting_style": "flashing stage lights"
+  },
+  "extra_instructions": null
+}
+
+Mapping Result:
+- {background_location} → "neon-lit rooftop in a modern Asian city"
+- {background_environment_details} → "LED strips, city lights in background, urban atmosphere"
+- {background_depth_and_space} → "wide open space with cityscape in background, clear depth layers"
+- {primary_palette} → "electric blue, magenta, deep purple"
+- {accent_colors} → "neon green, warm gold highlights"
+- {overall_mood} → "energetic party"
+- {lighting_style} → "flashing stage lights"
+- {extra_instructions_optional} → "" (vì null)
+
+Template được chọn: Template Background cho TikTok (cho social media background)
+
+================================================================================
+TEMPLATE PROMPT CHO BACKGROUND ONLY (KHÔNG CÓ NGƯỜI)
+================================================================================
+
+Template Background Cơ Bản (Template mặc định):
+
+A background scene of {background_location}, featuring {background_environment_details},
+with {background_depth_and_space}. The color palette focuses on {primary_palette}
+with accent colors of {accent_colors}, creating an overall {overall_mood} atmosphere
+using {lighting_style} lighting. Empty scene, no people, no characters, no idols,
+just the background environment. Optimized for vertical format, high resolution,
+detailed environment.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Vinahouse/Club:
+
+A high-energy club background scene set in {background_location} with
+{background_environment_details}, featuring {background_depth_and_space}.
+Dominated by {primary_palette} tones accented with {accent_colors}, evoking
+a {overall_mood} vibe through {lighting_style} lighting. Empty club scene,
+no people, no dancers, just the club environment and atmosphere. Vertical format,
+high resolution, detailed club setting.
+{extra_instructions_optional}
+
+---
+
+Template Background cho TikTok:
+
+A vibrant social media background scene at {background_location} enhanced by
+{background_environment_details}, arranged with {background_depth_and_space}.
+Color scheme emphasizes {primary_palette} highlighted by {accent_colors},
+creating a {overall_mood} aesthetic with {lighting_style} illumination.
+Empty scene, no people, no characters, perfect for social media background.
+Vertical format, trendy aesthetic, high resolution.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Elegant/Alluring:
+
+An alluring background scene at {background_location} featuring
+{background_environment_details}, with spatial arrangement: {background_depth_and_space}.
+Palette centers on {primary_palette} with {accent_colors} accents,
+establishing a {overall_mood} atmosphere through {lighting_style} lighting.
+Empty elegant scene, no people, no characters, just the sophisticated environment.
+Vertical format, high resolution, detailed setting.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Hip-hop/Street:
+
+A powerful street background scene at {background_location} with
+{background_environment_details}, structured with {background_depth_and_space}.
+Color palette built on {primary_palette} with {accent_colors} highlights,
+conveying a {overall_mood} street vibe via {lighting_style} lighting.
+Empty urban scene, no people, no characters, just the street environment.
+Vertical format, raw aesthetic, high resolution.
+{extra_instructions_optional}
+
+---
+
+Template Background cho K-pop Style:
+
+A polished K-pop style stage background at {background_location} enhanced with
+{background_environment_details}, designed with {background_depth_and_space}.
+Visual palette combines {primary_palette} with {accent_colors} accents,
+creating a {overall_mood} performance atmosphere using {lighting_style} lighting.
+Empty stage scene, no performers, no idols, just the stage environment.
+Vertical format, professional aesthetic, high resolution.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Studio:
+
+A clean minimalist studio background at {background_location} setting with
+{background_environment_details}, arranged with {background_depth_and_space}.
+Color scheme uses {primary_palette} as base with {accent_colors} touches,
+establishing a {overall_mood} mood through {lighting_style} lighting.
+Empty studio scene, no people, no dancers, just the clean studio environment.
+Vertical format, minimalist aesthetic, high resolution.
+{extra_instructions_optional}
+
+---
+
+Template Background cho Outdoor/Urban:
+
+An urban outdoor background scene at {background_location} with
+{background_environment_details}, utilizing {background_depth_and_space}.
+Natural and artificial lighting blend {primary_palette} with {accent_colors},
+creating a {overall_mood} urban atmosphere with {lighting_style} effects.
+Empty outdoor scene, no people, no characters, just the urban environment.
+Vertical format, cinematic aesthetic, high resolution.
+{extra_instructions_optional}
+
+
+================================================================================
+TÓM TẮT QUY TRÌNH SỬ DỤNG
+================================================================================
+
+1. Phân tích background với Gemini AI (nếu cần):
+   - Upload ảnh/video background mẫu vào Gemini
+   - Hoặc mô tả background mong muốn
+   - Nhận JSON output với thông tin background và color_mood
+
+2. Mapping dữ liệu từ JSON vào template:
+   - Background: location, environment_details, depth_and_space
+   - Color Mood: primary_palette (join array), accent_colors (join array), overall_mood, lighting_style
+   - Extra: extra_instructions (nếu có)
+
+3. Chọn template phù hợp:
+   - Chọn template theo loại background bạn muốn tạo
+   - Có thể dùng template mặc định cho background tổng quát
+
+4. Điền thông tin vào template:
+   - Thay thế tất cả các biến {variable} bằng giá trị từ JSON
+   - Đảm bảo thêm từ khóa "no people", "empty scene", "no characters"
+
+5. Sử dụng prompt đã điền:
+   - Copy prompt hoàn chỉnh
+   - Sử dụng với AI generation tool (Kling, Midjourney, DALL-E, v.v.)
+   - Để generate background scene only, không có người
+
+Lưu ý quan trọng:
+- LUÔN thêm từ khóa: "no people", "empty scene", "no characters", "no idols"
+- Template này chỉ tạo background, KHÔNG có người/idol trong ảnh/video
+- Đảm bảo JSON có đầy đủ thông tin background và color_mood
+- Có thể điều chỉnh template dựa trên overall_mood và lighting_style
+

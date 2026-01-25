@@ -1,0 +1,29 @@
+IDOL_KOL_IMAGE_GENERATION
+Tạo ảnh KOL từ ảnh idol và frame đầu video để sử dụng cho Motion Control.
+
+Đầu vào:
+- 1 ảnh idol (khuôn mặt idol là nhân vật chính, đứng rõ ràng trong khung hình).
+- 1 ảnh frame đầu của video nhảy (chứa nhân vật với pose cụ thể).
+
+Yêu cầu:
+1. Tạo hình ảnh mẫu (KOL) với các đặc điểm sau:
+   - Khuôn mặt: GIỮ NGUYÊN khuôn mặt của idol từ ảnh idol input (hình 1) (không thay đổi gương mặt).
+   - Pose: Giữ nguyên pose, dáng đứng, tư thế từ frame đầu video (hình 2) (để đảm bảo khi ghép video không bị lệch hình).
+   - Kiểu tóc: Giống với kiểu tóc từ ảnh idol input (hình 1).
+   - Trang phục: Giống với trang phục trong frame đầu video (hình 2) (màu sắc, kiểu dáng, chất liệu).
+   - Body type: Giữ nguyên dáng người giống trong frame đầu video (hình 2).
+
+2. Đảm bảo:
+   - Pose chính xác 100% so với frame đầu video để tránh lệch hình khi ghép video.
+   - Khuôn mặt rõ ràng, giống hệt idol trong ảnh input (hình 1).
+   - Chất lượng ảnh cao, sắc nét.
+   - Background có thể giữ nguyên hoặc làm mờ để tập trung vào nhân vật, cần loại bỏ những người khác không có trong hình chính.
+
+3. Format output:
+   - Ảnh có độ phân giải cao, phù hợp cho video generation.
+   - Tỷ lệ khung hình phù hợp với video (thường là 9:16 cho TikTok hoặc 16:9).
+
+Lưu ý quan trọng:
+- KHÔNG thay đổi khuôn mặt của idol (hình 1).
+- KHÔNG thay đổi pose so với frame đầu video (hình 2).
+- Đảm bảo tính nhất quán giữa khuôn mặt idol (hình 1) và pose từ frame đầu video (hình 2).

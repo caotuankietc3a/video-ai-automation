@@ -1,8 +1,7 @@
 IDOL_DANCE_ANALYSIS
-Phân tích ảnh idol và video nhảy để tạo dữ liệu cấu trúc phục vụ tạo PROMPT cho Kling AI.
+Phân tích idol và video nhảy để tạo dữ liệu cấu trúc phục vụ tạo PROMPT cho Kling AI.
 
 Đầu vào:
-- 1 ảnh idol (idol là nhân vật chính, đứng rõ ràng trong khung hình).
 - 1 video nhảy TikTok/Vinahouse.
 
 Yêu cầu:

@@ -48,3 +48,11 @@ class KlingPromptResult:
     prompt: str
     raw_data: KlingPromptData
 
+
+@dataclass
+class KolImageResult:
+    image_path: str
+    idol_image_path: str
+    first_frame_path: str
+    generated_at: Optional[str] = None
+

@@ -1,0 +1,300 @@
+Idol Composite Background Prompt Template
+Tạo prompt để composite idol nhân vật vào background scene
+
+INPUT:
+- 1 hình idol (ảnh nhân vật idol)
+- 1 hình background (ảnh background scene)
+- JSON từ video analysis (IDOL_VIDEO_ANALYSIS_PROMPT.txt) - chứa pose_style
+
+NHIỆM VỤ:
+- Đưa nhân vật idol vào giữa khung background
+- Nhân vật idol chỉ hiện từ đầu gối trở lên (half body, knees up)
+- Giấu phần chân của idol (legs hidden, cropped at knees)
+- Idol PHẢI đứng/pose giống với trong video đã phân tích (sử dụng pose_style từ JSON)
+- Composite tự nhiên, seamless integration
+
+================================================================================
+HƯỚNG DẪN SỬ DỤNG
+================================================================================
+
+CÁCH SỬ DỤNG:
+1. Phân tích video với Gemini AI:
+   - Upload video nhảy vào Gemini AI
+   - Sử dụng prompt từ file IDOL_VIDEO_ANALYSIS_PROMPT.txt
+   - Nhận JSON output với pose_style từ video
+
+2. Chuẩn bị 2 ảnh:
+   - Ảnh idol: Ảnh nhân vật idol (full body hoặc half body)
+   - Ảnh background: Ảnh background scene
+
+3. Mapping từ JSON vào prompt:
+   - Lấy pose_style từ json.idol.pose_style
+   - Sử dụng pose_style này trong prompt để đảm bảo idol đứng giống video
+
+4. Upload 2 ảnh + prompt vào AI generation tool (Midjourney, DALL-E, Stable Diffusion, v.v.)
+
+5. Sử dụng prompt template bên dưới (đã bao gồm {pose_style})
+
+6. Đảm bảo prompt bao gồm:
+   - "composite idol character into center of background"
+   - "half body, from knees up"
+   - "legs hidden, cropped at knees"
+   - "{pose_style}" - pose giống với trong video
+   - "seamless integration"
+   - "lighting matched"
+   - "color harmony"
+
+LƯU Ý QUAN TRỌNG:
+- Idol phải được đặt ở GIỮA khung hình
+- Chỉ hiện từ đầu gối trở lên (knees up, half body)
+- Phần chân phải được giấu/crop (legs hidden, cropped)
+- Idol PHẢI đứng/pose giống với trong video (sử dụng pose_style từ JSON)
+- Composite phải tự nhiên, không có artifacts
+
+MAPPING TỪ JSON:
+- {pose_style} → json.idol.pose_style (từ video analysis)
+  Ví dụ: "dynamic dance pose", "confident standing pose", "hand on hip pose", v.v.
+
+================================================================================
+TEMPLATE PROMPT CHO IMAGE COMPOSITE
+================================================================================
+
+Template Composite Cơ Bản:
+
+Composite the idol character from the provided idol image into the center of the
+background image. The idol should be shown from knees up (half body), with legs
+hidden and cropped at the knees. The idol is positioned in the center of the frame
+in a {pose_style} pose, matching exactly how they stand in the analyzed video.
+The idol is seamlessly integrated into the background scene. The idol's lighting
+matches the background's lighting, creating natural integration. Color grading
+ensures harmony between idol and background. Seamless composite, no visible
+compositing artifacts, natural shadows, proper depth, high resolution, detailed.
+
+---
+
+Template Composite với Lighting Matching:
+
+Composite the idol character from the idol image into the center of the background
+image. Show the idol from knees up (half body), legs hidden, cropped at knees.
+The idol is centered in the frame in a {pose_style} pose, exactly matching the
+pose from the analyzed video. The idol is seamlessly integrated into the background.
+The idol's lighting is carefully matched to the background's lighting direction
+and intensity, ensuring the idol appears naturally lit by the same light sources
+as the background. The idol casts realistic shadows that match the background's
+light direction. Color grading maintains visual harmony. Seamless integration,
+realistic shadows, natural lighting, no visible seams, high detail.
+
+---
+
+Template Composite với Color Harmony:
+
+Composite the idol character from the idol image into the center of the background
+image. Display the idol from knees up (half body), with legs hidden and cropped
+at the knees. The idol is positioned in the center in a {pose_style} pose,
+matching the exact pose from the analyzed video. The idol is seamlessly composited
+into the background scene. The idol's colors are harmonized with the background's
+color palette, creating visual unity. Lighting is applied consistently to both
+idol and background, ensuring natural integration. Seamless composite,
+color-matched, lighting-matched, natural integration, high resolution, detailed.
+
+---
+
+Template Composite với Depth Integration:
+
+Composite the idol character from the idol image into the center of the background
+image. Show the idol from knees up (half body), legs hidden, cropped at knees.
+The idol is centered and positioned in the foreground in a {pose_style} pose,
+exactly matching the pose from the analyzed video. Proper depth cues are applied:
+background elements appear slightly out of focus, the idol has appropriate scale
+relative to background, and atmospheric perspective is applied. The idol's
+lighting creates natural shadows and highlights that match the background's
+light direction. Seamless integration, realistic depth, natural compositing,
+high detail.
+
+---
+
+Template Composite cho Vertical Format (TikTok/Instagram):
+
+Composite the idol character from the idol image into the center of the background
+image. Display the idol from knees up (half body), with legs hidden and cropped
+at the knees. The idol is centered in the vertical frame in a {pose_style} pose,
+matching exactly how they stand in the analyzed video. The idol is seamlessly
+integrated into the background. The idol's lighting and colors are matched to the
+background, creating a cohesive aesthetic. Perfect for social media, vertical format
+(9:16), seamless composite, natural integration, high resolution, no visible artifacts.
+
+---
+
+
+================================================================================
+LƯU Ý QUAN TRỌNG KHI COMPOSITE IDOL VÀO BACKGROUND
+================================================================================
+
+1. Positioning:
+   - Idol PHẢI được đặt ở GIỮA khung hình (center of frame)
+   - Sử dụng từ khóa: "centered", "center of frame", "middle of composition"
+
+2. Pose Matching (QUAN TRỌNG):
+   - Idol PHẢI đứng/pose giống với trong video đã phân tích
+   - Sử dụng pose_style từ JSON video analysis
+   - Sử dụng từ khóa: "{pose_style}", "matching the pose from analyzed video",
+     "exactly matching the pose", "same pose as in video"
+
+3. Half Body Composition:
+   - Chỉ hiện idol từ đầu gối trở lên (knees up)
+   - Phần chân phải được giấu/crop
+   - Sử dụng từ khóa: "half body", "from knees up", "knees up", "legs hidden",
+     "cropped at knees", "upper body only"
+
+4. Lighting Matching:
+   - Đảm bảo lighting của idol khớp với lighting của background
+   - Idol phải có highlights và shadows phù hợp với light direction của background
+   - Sử dụng từ khóa: "lighting matches", "naturally lit", "same light sources"
+
+5. Color Harmony:
+   - Idol và background phải có color grading nhất quán
+   - Sử dụng từ khóa: "color-matched", "color harmony", "visual unity"
+
+6. Depth Integration:
+   - Idol ở foreground, background elements ở background
+   - Áp dụng depth of field: background hơi mờ, idol rõ nét
+   - Sử dụng từ khóa: "proper depth", "atmospheric perspective", "depth cues"
+
+7. Shadow Integration:
+   - Idol phải cast shadows phù hợp với lighting của background
+   - Shadows phải có direction và intensity đúng
+   - Sử dụng từ khóa: "realistic shadows", "proper shadows", "shadow matching"
+
+8. Seamless Integration:
+   - Không có visible seams, artifacts, hoặc compositing errors
+   - Sử dụng từ khóa: "seamless", "natural integration", "no visible compositing",
+     "no artifacts"
+
+9. Scale và Perspective:
+   - Idol phải có scale phù hợp với background elements
+   - Perspective phải nhất quán
+   - Sử dụng từ khóa: "proper scale", "correct perspective", "realistic proportions"
+
+================================================================================
+VÍ DỤ SỬ DỤNG
+================================================================================
+
+Ví dụ 1: Composite cơ bản
+
+Input:
+- Ảnh idol: Nữ idol mặc áo trắng
+- Ảnh background: Neon-lit rooftop với city lights
+- JSON từ video analysis:
+  {
+    "idol": {
+      "pose_style": "confident standing pose with hand on hip"
+    }
+  }
+
+Prompt sử dụng:
+"Composite the idol character from the provided idol image into the center of the
+background image. The idol should be shown from knees up (half body), with legs
+hidden and cropped at the knees. The idol is positioned in the center of the frame
+in a confident standing pose with hand on hip pose, matching exactly how they stand
+in the analyzed video. The idol is seamlessly integrated into the background scene.
+The idol's lighting matches the background's lighting, creating natural integration.
+Color grading ensures harmony between idol and background. Seamless composite,
+no visible compositing artifacts, natural shadows, proper depth, high resolution, detailed."
+
+---
+
+Ví dụ 2: Composite với lighting matching
+
+Input:
+- Ảnh idol: Idol mặc váy đen
+- Ảnh background: Club scene với flashing lights
+- JSON từ video analysis:
+  {
+    "idol": {
+      "pose_style": "dynamic dance pose with arms raised"
+    }
+  }
+
+Prompt sử dụng:
+"Composite the idol character from the idol image into the center of the background
+image. Show the idol from knees up (half body), legs hidden, cropped at knees.
+The idol is centered in the frame in a dynamic dance pose with arms raised pose,
+exactly matching the pose from the analyzed video. The idol is seamlessly integrated
+into the background. The idol's lighting is carefully matched to the background's
+lighting direction and intensity, ensuring the idol appears naturally lit by the
+same light sources as the background. The idol casts realistic shadows that match
+the background's light direction. Color grading maintains visual harmony. Seamless
+integration, realistic shadows, natural lighting, no visible seams, high detail."
+
+---
+
+Ví dụ 3: Composite cho vertical format
+
+Input:
+- Ảnh idol: Idol mặc outfit trendy
+- Ảnh background: Modern studio với LED strips
+- JSON từ video analysis:
+  {
+    "idol": {
+      "pose_style": "casual leaning pose with one hand touching hair"
+    }
+  }
+
+Prompt sử dụng:
+"Composite the idol character from the idol image into the center of the background
+image. Display the idol from knees up (half body), with legs hidden and cropped
+at the knees. The idol is centered in the vertical frame in a casual leaning pose
+with one hand touching hair pose, matching exactly how they stand in the analyzed
+video. The idol is seamlessly integrated into the background. The idol's lighting
+and colors are matched to the background, creating a cohesive aesthetic. Perfect
+for social media, vertical format (9:16), seamless composite, natural integration,
+high resolution, no visible artifacts."
+
+================================================================================
+TÓM TẮT QUY TRÌNH
+================================================================================
+
+1. Phân tích video với Gemini AI:
+   - Upload video nhảy vào Gemini AI
+   - Sử dụng prompt từ file IDOL_VIDEO_ANALYSIS_PROMPT.txt
+   - Nhận JSON output, lấy pose_style từ json.idol.pose_style
+
+2. Chuẩn bị 2 ảnh:
+   - Ảnh idol (nhân vật idol)
+   - Ảnh background (background scene)
+
+3. Mapping pose_style vào prompt:
+   - Thay {pose_style} trong template bằng giá trị từ json.idol.pose_style
+   - Đảm bảo prompt nhấn mạnh "matching exactly how they stand in the analyzed video"
+
+4. Upload 2 ảnh vào AI generation tool:
+   - Midjourney: Sử dụng /imagine với 2 ảnh + prompt
+   - DALL-E: Upload 2 ảnh và sử dụng prompt
+   - Stable Diffusion: Sử dụng img2img với 2 ảnh + prompt
+   - Hoặc các tool composite khác
+
+5. Chọn template phù hợp:
+   - Template Composite Cơ Bản → Cho composite đơn giản
+   - Template với Lighting Matching → Khi cần matching lighting tốt
+   - Template với Color Harmony → Khi cần color grading
+   - Template với Depth Integration → Khi cần depth tốt
+   - Template cho Vertical Format → Cho TikTok/Instagram
+
+6. Sử dụng prompt template:
+   - Copy template đã chọn
+   - Thay {pose_style} bằng giá trị từ JSON
+   - Đảm bảo prompt bao gồm: "center", "knees up", "half body", "legs hidden", "{pose_style}"
+   - Thêm các từ khóa: "seamless", "natural integration", "lighting matched", "matching the pose from analyzed video"
+
+7. Generate và kiểm tra:
+   - Idol có ở giữa khung hình không?
+   - Idol có chỉ hiện từ đầu gối trở lên không?
+   - Idol có đứng/pose giống với trong video không? (QUAN TRỌNG)
+   - Composite có tự nhiên không?
+   - Lighting và color có hài hòa không?
+
+Lưu ý quan trọng:
+- LUÔN nhấn mạnh: "center of frame", "knees up", "half body", "legs hidden"
+- QUAN TRỌNG: "matching exactly how they stand in the analyzed video", "{pose_style}"
+- Đảm bảo: "seamless integration", "natural lighting", "color harmony"
+- Kiểm tra: Không có artifacts, shadows phù hợp, depth đúng, pose match với video

@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-import json
 
 from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 
 from ..config.config_manager import config_manager
 from ..config.constants import COOKIES_DIR
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -23,6 +26,7 @@ class FreepikVideoGeneratorFlow:
         self._base_url = base_url or "https://www.freepik.com/"
 
     async def generate_video(self, start_image: Path, video_file: Path) -> None:
+        logger.info("Freepik: Khởi tạo browser...")
         async with async_playwright() as pw:
             browser: Browser = await pw.chromium.launch(headless=False)
 
@@ -39,12 +43,14 @@ class FreepikVideoGeneratorFlow:
 
             if storage_state is not None:
                 context: BrowserContext = await browser.new_context(storage_state=storage_state)
+                logger.info("Freepik: Dùng cookies đã lưu")
             else:
                 context = await browser.new_context()
 
             page: Page = await context.new_page()
 
             await page.goto(self._base_url)
+            logger.info("Freepik: Đã mở trang chủ")
 
             await page.click('a[data-cy="signin-button"]')
             await page.wait_for_timeout(500)
@@ -57,23 +63,30 @@ class FreepikVideoGeneratorFlow:
             await page.fill('input[name="password"]', self._credentials.password)
 
             await self._click_login_button(page)
+            logger.info("Freepik: Đã gửi login form")
 
             await page.wait_for_timeout(2000)
 
             await page.click('a[data-cy="sidebar-pinned-tool-20"]')
+            logger.info("Freepik: Đã mở Video Generator")
 
             await page.wait_for_timeout(2000)
 
             await page.click('button#aiModelApi')
             await page.wait_for_timeout(500)
             await page.click('button[data-cy="ai-model-item-slim-kling-motion-control"]')
+            logger.info("Freepik: Đã chọn model Kling Motion Control")
 
             await self._upload_start_image(page, start_image)
+            logger.info("Freepik: Đã upload start image")
+
             await self._upload_video(page, video_file)
+            logger.info("Freepik: Đã upload video")
 
             await page.wait_for_timeout(500)
 
             await page.click('button[data-cy="generate-button"]')
+            logger.info("Freepik: Đã bấm Generate")
 
             await page.wait_for_timeout(10000)
 
@@ -84,6 +97,7 @@ class FreepikVideoGeneratorFlow:
 
             await context.close()
             await browser.close()
+            logger.info("Freepik: Đóng browser, xong.")
 
     async def _click_login_button(self, page: Page) -> None:
         try:

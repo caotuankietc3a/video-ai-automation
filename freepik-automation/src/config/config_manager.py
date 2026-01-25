@@ -25,6 +25,10 @@ class ConfigManager:
                 "email": "",
                 "password": "",
             },
+            "gemini_account": {
+                "email": "jonathancacf@vinh.epstore.tech",
+                "password": "Donchal03@@",
+            },
             "browser_automation": {
                 "headless": False,
                 "timeout": 30000,
