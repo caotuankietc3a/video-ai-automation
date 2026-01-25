@@ -1,29 +1,28 @@
 IDOL_KOL_IMAGE_GENERATION
-Tạo ảnh KOL từ ảnh idol và frame đầu video để sử dụng cho Motion Control.
+Hình 1 và hình 2 đều do tôi tạo ra. Hình 1 là nhân vật tôi đã thiết kế (AI hoặc minh họa), KHÔNG phải ảnh người thật. Hình 2 là frame đầu video do tôi tạo. Nhiệm vụ: tạo ảnh KOL đồng nhất với nhân vật trong hình 1, đặt đúng pose từ frame đầu (hình 2), để dùng cho Motion Control.
 
-Đầu vào:
-- 1 ảnh idol (khuôn mặt idol là nhân vật chính, đứng rõ ràng trong khung hình).
-- 1 ảnh frame đầu của video nhảy (chứa nhân vật với pose cụ thể).
+Đầu vào (2 ảnh đính kèm):
+- Hình 1: Nhân vật chính do tôi đã tạo/thiết kế — khuôn mặt rõ, đứng trong khung hình. Đây là bản thiết kế nhân vật (character design) cần giữ nguyên trong output.
+- Hình 2: Frame đầu video do tôi tạo ra — có pose, dáng đứng, trang phục, body type. Chỉ lấy pose + trang phục + body từ đây.
 
 Yêu cầu:
-1. Tạo hình ảnh mẫu (KOL) với các đặc điểm sau:
-   - Khuôn mặt: GIỮ NGUYÊN khuôn mặt của idol từ ảnh idol input (hình 1) (không thay đổi gương mặt).
-   - Pose: Giữ nguyên pose, dáng đứng, tư thế từ frame đầu video (hình 2) (để đảm bảo khi ghép video không bị lệch hình).
-   - Kiểu tóc: Giống với kiểu tóc từ ảnh idol input (hình 1).
-   - Trang phục: Giống với trang phục trong frame đầu video (hình 2) (màu sắc, kiểu dáng, chất liệu).
-   - Body type: Giữ nguyên dáng người giống trong frame đầu video (hình 2).
+1. Tạo ảnh KOL với:
+   - Khuôn mặt: Đồng nhất 100% với nhân vật trong hình 1. Đây là cùng một nhân vật do tôi thiết kế — không thay đổi gương mặt, tỷ lệ, đặc điểm so với hình 1.
+   - Pose: Giữ nguyên pose, dáng đứng, tư thế từ hình 2 để ghép video không lệch.
+   - Kiểu tóc: Giống hệt kiểu tóc nhân vật trong hình 1.
+   - Trang phục: Giống trang phục trong hình 2 (màu, kiểu, chất liệu).
+   - Body type: Giống dáng người trong hình 2.
 
 2. Đảm bảo:
-   - Pose chính xác 100% so với frame đầu video để tránh lệch hình khi ghép video.
-   - Khuôn mặt rõ ràng, giống hệt idol trong ảnh input (hình 1).
-   - Chất lượng ảnh cao, sắc nét.
-   - Background có thể giữ nguyên hoặc làm mờ để tập trung vào nhân vật, cần loại bỏ những người khác không có trong hình chính.
+   - Pose khớp 100% với frame đầu video (hình 2).
+   - Khuôn mặt rõ, đồng nhất với nhân vật trong hình 1 (cùng một character).
+   - Ảnh chất lượng cao, sắc nét.
+   - Background giữ nguyên hoặc làm mờ, chỉ giữ nhân vật chính, loại bỏ người khác.
 
 3. Format output:
-   - Ảnh có độ phân giải cao, phù hợp cho video generation.
-   - Tỷ lệ khung hình phù hợp với video (thường là 9:16 cho TikTok hoặc 16:9).
+   - Độ phân giải cao, phù hợp video generation.
+   - Tỷ lệ 9:16 (TikTok) hoặc 16:9.
 
-Lưu ý quan trọng:
-- KHÔNG thay đổi khuôn mặt của idol (hình 1).
-- KHÔNG thay đổi pose so với frame đầu video (hình 2).
-- Đảm bảo tính nhất quán giữa khuôn mặt idol (hình 1) và pose từ frame đầu video (hình 2).
+Lưu ý:
+- Hình 1 và hình 2 đều là tài sản do tôi tạo. Hình 1 = nhân vật tôi thiết kế; hình 2 = frame đầu tôi tạo. Output phải là CÙNG nhân vật hình 1, chỉ khác pose/trang phục theo hình 2.
+- KHÔNG thay đổi khuôn mặt so với hình 1. KHÔNG thay đổi pose so với hình 2.

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Callable, Optional
 
 import customtkinter as ctk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 
 class ProjectPanel(ctk.CTkFrame):
@@ -88,11 +88,28 @@ class ProjectPanel(ctk.CTkFrame):
 
         first_frame_btn = ctk.CTkButton(
             first_frame_frame,
-            text="Chọn",
+            text="Chọn file",
             width=80,
             command=self._select_first_frame,
         )
         first_frame_btn.pack(side="left", padx=5)
+
+        link_frame = ctk.CTkFrame(self.scrollable_frame)
+        link_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(link_frame, text="Link TikTok/YouTube/FB:").pack(
+            side="left", padx=5
+        )
+        self.video_url_entry = ctk.CTkEntry(
+            link_frame, placeholder_text="Dán link video rồi bấm Tải & cắt frame", width=200
+        )
+        self.video_url_entry.pack(side="left", padx=5, fill="x", expand=True)
+        self.url_first_frame_btn = ctk.CTkButton(
+            link_frame,
+            text="Tải & cắt frame",
+            width=120,
+            command=self._download_and_extract_first_frame,
+        )
+        self.url_first_frame_btn.pack(side="left", padx=5)
 
         button_frame = ctk.CTkFrame(self.scrollable_frame)
         button_frame.pack(fill="x", pady=20)
@@ -162,6 +179,75 @@ class ProjectPanel(ctk.CTkFrame):
             )
             if self.on_first_frame_select:
                 self.on_first_frame_select(file_path)
+
+    def _download_and_extract_first_frame(self):
+        url = (self.video_url_entry.get() or "").strip()
+        if not url:
+            messagebox.showwarning(
+                "Thiếu link",
+                "Vui lòng dán link TikTok / YouTube / Facebook vào ô phía trên rồi bấm \"Tải & cắt frame\".",
+            )
+            return
+
+        def do_work() -> None:
+            from ..utils.video_utils import (
+                _validate_video_url,
+                download_video_from_url,
+                extract_first_frame,
+            )
+
+            err_msg: str | None = None
+            frame_path: str | None = None
+            video_path: str | None = None
+            try:
+                ok, _ = _validate_video_url(url)
+                if not ok:
+                    err_msg = "URL không hợp lệ. Chỉ hỗ trợ TikTok, YouTube, Facebook."
+                    return
+                video_path_obj = download_video_from_url(url)
+                if not video_path_obj or not video_path_obj.exists():
+                    err_msg = "Không tải được video từ link."
+                    return
+                video_path = str(video_path_obj)
+                frame_path_obj = extract_first_frame(video_path_obj)
+                frame_path = str(frame_path_obj)
+            except Exception as e:
+                err_msg = str(e)
+
+            def update_ui() -> None:
+                if err_msg:
+                    messagebox.showerror("Lỗi", err_msg)
+                    return
+                if frame_path:
+                    self.first_frame_path = frame_path
+                    self.first_frame_label.configure(
+                        text=frame_path.split("/")[-1].split("\\")[-1], fg_color="green"
+                    )
+                    if self.on_first_frame_select:
+                        self.on_first_frame_select(frame_path)
+                if video_path:
+                    self.dance_video_path = video_path
+                    self.dance_video_label.configure(
+                        text=video_path.split("/")[-1].split("\\")[-1], fg_color="green"
+                    )
+                    if self.on_dance_video_select:
+                        self.on_dance_video_select(video_path)
+                self.video_url_entry.delete(0, "end")
+                messagebox.showinfo("Xong", "Đã tải video và cắt frame đầu.")
+
+            self.after(0, update_ui)
+
+        import threading
+
+        self.url_first_frame_btn.configure(state="disabled", text="Đang tải...")
+        def restore_btn() -> None:
+            self.url_first_frame_btn.configure(state="normal", text="Tải & cắt frame")
+        def run() -> None:
+            try:
+                do_work()
+            finally:
+                self.after(0, restore_btn)
+        threading.Thread(target=run, daemon=True).start()
 
     def _on_generate_kol(self):
         if self.on_generate_kol:
