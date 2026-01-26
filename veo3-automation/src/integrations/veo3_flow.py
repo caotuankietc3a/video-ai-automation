@@ -292,12 +292,29 @@ class VEO3Flow:
             print(f"Warning: Không thể set aspect ratio: {e}, tiếp tục với settings mặc định")
     
     async def _fill_prompt_and_generate(self, prompt: str):
-        prompt_input_selector = 'textarea[placeholder*="Generate a video"]'
+        prompt_input_selector = 'textarea#PINHOLE_TEXT_AREA_ELEMENT_ID, textarea[placeholder*="Generate a video"]'
         await self.browser.wait_for_selector(prompt_input_selector, timeout=60000)
         await self.browser.fill(prompt_input_selector, prompt)
         await asyncio.sleep(1)
-        
+
+        max_retries = 10
+        for _ in range(max_retries):
+            value = await self.browser.evaluate("""
+                () => {
+                    const el = document.querySelector('textarea#PINHOLE_TEXT_AREA_ELEMENT_ID')
+                        || document.querySelector('textarea[placeholder*="Generate a video"]');
+                    return el ? (el.value || '').trim() : '';
+                }
+            """)
+            if value and len(value) >= 1:
+                break
+            await self.browser.fill(prompt_input_selector, prompt)
+            await asyncio.sleep(0.5)
+        else:
+            raise RuntimeError("Textarea prompt không có nội dung, không thể tiếp tục Generate")
+
         generate_button_selector = 'button:has-text("Generate"), button:has-text("Create"), button[type="submit"]'
+        await self.browser.wait_for_selector(generate_button_selector, timeout=60000)
         await self.browser.click(generate_button_selector)
         await asyncio.sleep(5)
     
