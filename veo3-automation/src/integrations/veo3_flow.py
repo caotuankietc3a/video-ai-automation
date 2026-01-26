@@ -44,6 +44,14 @@ class VEO3Flow:
         
         try:
             current_url = await self.browser.get_current_url()
+            if not current_url or not str(current_url).strip() or str(current_url).strip().lower() == "about:blank":
+                print("⚠ current_url trống hoặc about:blank, đang navigate tới project link...")
+                await self.browser.navigate(project_link)
+                await asyncio.sleep(3)
+                await self.browser.login_to_google()
+                await asyncio.sleep(2)
+                current_url = await self.browser.get_current_url()
+
             expected_project_id = self._extract_project_id(project_link)
             expected_scene_id = self._extract_scene_id(project_link)
             
