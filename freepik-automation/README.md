@@ -43,10 +43,19 @@ python -m playwright install
 
 Yêu cầu: Python 3.10+ (nên dùng cùng version với `veo3-automation`).
 
-**Dependencies mới:**
-- `opencv-python`: để extract frame từ video
-- `customtkinter>=5.2.0`: cho UI application
-- `pillow>=10.0.0`: cho image preview trong UI
+**Dependencies chính:**
+- `opencv-python`: extract frame từ video
+- `customtkinter>=5.2.0`: UI application
+- `pillow>=10.0.0`: image preview trong UI
+- `pydub`, `SpeechRecognition`: tự động giải reCAPTCHA (audio) khi login Freepik
+
+**reCAPTCHA (login Freepik) – ffmpeg:**
+- Giải reCAPTCHA dùng nhận dạng giọng nói từ audio. `pydub` cần **ffmpeg** để đọc/ghi file audio.
+- Cài ffmpeg:
+  - **macOS:** `brew install ffmpeg`
+  - **Ubuntu/Debian:** `sudo apt-get update && sudo apt-get install ffmpeg`
+  - **Windows:** tải từ [ffmpeg.org](https://ffmpeg.org/download.html) hoặc `winget install ffmpeg`, rồi thêm vào PATH.
+- Speech: ưu tiên Google Speech API; nếu lỗi sẽ thử fallback offline (Sphinx). Cài thêm `pocketsphinx` để dùng fallback: `pip install pocketsphinx`.
 
 ---
 
@@ -361,6 +370,10 @@ python run_batch.py data/batch_configs/sample_config.json
 
 **Lỗi "Freepik account not configured":**
 - Cấu hình email/password trong `data/config.json` hoặc Settings tab trong UI
+
+**Lỗi reCAPTCHA / pydub / ffmpeg:**
+- `Need ffmpeg` hoặc lỗi khi xử lý audio reCAPTCHA: cài ffmpeg (xem mục 1).
+- Muốn fallback offline khi Google Speech lỗi: `pip install pocketsphinx`.
 
 ---
 

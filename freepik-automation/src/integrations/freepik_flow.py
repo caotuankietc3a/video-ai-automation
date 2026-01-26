@@ -11,6 +11,7 @@ from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 
 from ..config.config_manager import config_manager
 from ..config.constants import COOKIES_DIR
+from .recaptcha_solver import recaptcha_visible, solve_recaptcha
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +73,17 @@ class FreepikVideoGeneratorFlow:
                 await page.wait_for_selector('input[name="password"]', state="visible")
                 await page.fill('input[name="password"]', self._credentials.password)
 
-                logger.info("Freepik: Nếu trang hiện reCAPTCHA, vui lòng giải trên trình duyệt (tối đa 90 giây).")
                 await self._click_login_button(page)
+                await page.wait_for_timeout(2000)
+
+                if "log-in" in page.url and await recaptcha_visible(page):
+                    try:
+                        logger.info("Freepik: Phát hiện reCAPTCHA, đang tự động giải (audio)...")
+                        await solve_recaptcha(page)
+                        await page.wait_for_timeout(500)
+                        await self._click_login_button(page)
+                    except Exception as e:
+                        logger.warning("Freepik: Tự động giải reCAPTCHA lỗi: %s. Vui lòng giải thủ công (tối đa 90 giây).", e)
 
                 deadline = asyncio.get_running_loop().time() + 90
                 while asyncio.get_running_loop().time() < deadline:
