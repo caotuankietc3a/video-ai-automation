@@ -141,12 +141,41 @@ class Workflow:
             project = project_manager.load_project(project_file) if project_file else None
             
             if current_step == "complete":
+                videos = project.get("videos", []) if project else []
+                failed = [v for v in videos if isinstance(v, dict) and v.get("status") == "FAILED"]
+                if failed:
+                    self.logger.info(f"Workflow đã complete nhưng có {len(failed)} video(s) FAILED, đang retry từng video...")
+                    use_browser = project_config.get("use_browser_automation", True)
+                    veo = self._get_veo3_flow()
+                    for i, v in enumerate(videos):
+                        if not isinstance(v, dict) or v.get("status") == "SUCCESSFUL":
+                            continue
+                        prompt = v.get("prompt", "")
+                        if not prompt:
+                            continue
+                        scene_id = v.get("scene_id", f"scene_{i + 1}")
+                        result = await veo.retry_video(prompt, project_config, use_browser)
+                        result = dict(result)
+                        result["scene_id"] = scene_id
+                        if project:
+                            project["videos"] = project.get("videos", []) or []
+                            if i < len(project["videos"]):
+                                project["videos"][i] = result
+                            else:
+                                project["videos"].append(result)
+                            project_manager.save_project(project)
+                    return {
+                        "characters": project.get("characters", {}) if project else {},
+                        "scenes": project.get("scenes", []) if project else [],
+                        "prompts": project.get("prompts", []) if project else [],
+                        "videos": project.get("videos", []) if project else [],
+                    }
                 self.logger.info("Workflow đã hoàn thành, không cần chạy lại")
                 return {
                     "characters": project.get("characters", {}) if project else {},
                     "scenes": project.get("scenes", []) if project else [],
                     "prompts": project.get("prompts", []) if project else [],
-                    "videos": project.get("videos", []) if project else [],
+                    "videos": videos,
                 }
             
             script_text: str = project_config.get("script", "")
