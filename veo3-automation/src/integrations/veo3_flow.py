@@ -46,6 +46,7 @@ class VEO3Flow:
             current_url = await self.browser.get_current_url()
             if not current_url or not str(current_url).strip() or str(current_url).strip().lower() == "about:blank":
                 print("⚠ current_url trống hoặc about:blank, đang navigate tới project link...")
+                await self.browser.clear_cookies()
                 await self.browser.navigate(project_link)
                 await asyncio.sleep(3)
                 await self.browser.login_to_google()
@@ -66,6 +67,7 @@ class VEO3Flow:
             
             if not project_match or not scene_match:
                 print(f"⚠ Browser không ở đúng project/scene, đang navigate lại...")
+                await self.browser.clear_cookies()
                 await self.browser.navigate(project_link)
                 await asyncio.sleep(3)
                 await self.browser.login_to_google()

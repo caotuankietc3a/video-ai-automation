@@ -450,6 +450,7 @@ class BrowserAutomation:
             return
         
         logger.info(f"Chưa đăng nhập, bắt đầu login với email: {email[:3]}***")
+        await self.clear_cookies()
         
         try:
             logger.info("Đang chờ form nhập email xuất hiện...")
@@ -481,8 +482,18 @@ class BrowserAutomation:
             raise
 
     def _get_cookies_file_path(self, domain: str = "google") -> str:
-        """Lấy đường dẫn file cookies cho domain"""
         return os.path.join(COOKIES_DIR, f"{domain}_cookies.json")
+
+    async def clear_cookies(self, domain: str = "google") -> None:
+        if self.context:
+            await self.context.clear_cookies()
+        cookies_file = self._get_cookies_file_path(domain)
+        if os.path.exists(cookies_file):
+            try:
+                os.remove(cookies_file)
+                logger.info(f"Đã xóa file cookies: {cookies_file}")
+            except OSError as e:
+                logger.warning(f"Không thể xóa file cookies: {e}")
     
     def _load_cookies(self, domain: str = "google") -> Optional[Dict[str, Any]]:
         """Load cookies từ file"""
