@@ -1,0 +1,31 @@
+Thay nhân vật gốc trong video bằng người từ ảnh tham chiếu.
+
+Nhân vật mới phải khớp với ảnh tham chiếu:
+* Cùng khuôn mặt, đường nét, tông da
+* {outfit_description}
+* {pose_style}
+* Biểu cảm tự nhiên, thân thiện
+
+Giữ nguyên phần video gốc:
+* Cùng động tác, điệu nhảy / cử chỉ / nhịp
+* Cùng góc máy và chuyển động máy
+* Cùng bối cảnh và môi trường
+* Cùng hướng ánh sáng và cường độ
+
+Bối cảnh: {location}. {environment_details} {depth_and_space}
+
+Tông màu: {primary_palette}, điểm nhấn {accent_colors}. Không khí {overall_mood}, ánh sáng {lighting_style}.
+
+Phong cách:
+* Chất lượng cao, cinematographic
+* Chuyển động mượt, không giật
+* Biểu cảm mặt tự nhiên theo video gốc
+* Không méo mặt, không nhấp nháy, không đổi nhân vật
+
+Quy tắc:
+* KHÔNG đổi bối cảnh
+* KHÔNG đổi bố cục video
+* KHÔNG thêm người
+* KHÔNG sửa tỷ lệ cơ thể
+* Nhân vật nhất quán mọi frame
+{extra_instructions}

@@ -25,7 +25,12 @@ class FreepikVideoGeneratorFlow:
         self._credentials = FreepikCredentials(email=email, password=password)
         self._base_url = base_url or "https://www.freepik.com/"
 
-    async def generate_video(self, start_image: Path, video_file: Path) -> None:
+    async def generate_video(
+        self,
+        start_image: Path,
+        video_file: Path,
+        kling_prompt: Optional[str] = None,
+    ) -> None:
         logger.info("Freepik: Khởi tạo browser...")
         async with async_playwright() as pw:
             browser: Browser = await pw.chromium.launch(headless=False)
@@ -49,25 +54,37 @@ class FreepikVideoGeneratorFlow:
 
             page: Page = await context.new_page()
 
-            await page.goto(self._base_url)
+            await page.goto(self._base_url, wait_until="domcontentloaded")
+            await page.wait_for_timeout(2000)
             logger.info("Freepik: Đã mở trang chủ")
 
-            await page.click('a[data-cy="signin-button"]')
-            await page.wait_for_timeout(500)
-            await page.click('button:has-text("Continue with email")')
+            signin = await page.query_selector('a[data-cy="signin-button"]')
+            need_login = signin is not None and await signin.is_visible()
 
-            await page.wait_for_selector('input[name="email"]')
-            await page.fill('input[name="email"]', self._credentials.email)
+            if need_login:
+                await page.click('a[data-cy="signin-button"]')
+                await page.wait_for_timeout(500)
+                await page.click('button:has-text("Continue with email")')
 
-            await page.wait_for_selector('input[name="password"]')
-            await page.fill('input[name="password"]', self._credentials.password)
+                await page.wait_for_selector('input[name="email"]', state="visible")
+                await page.fill('input[name="email"]', self._credentials.email)
 
-            await self._click_login_button(page)
-            logger.info("Freepik: Đã gửi login form")
+                await page.wait_for_selector('input[name="password"]', state="visible")
+                await page.fill('input[name="password"]', self._credentials.password)
 
-            await page.wait_for_timeout(2000)
+                logger.info("Freepik: Nếu trang hiện reCAPTCHA, vui lòng giải trên trình duyệt (tối đa 90 giây).")
+                await self._click_login_button(page)
 
-            await page.click('a[data-cy="sidebar-pinned-tool-20"]')
+                deadline = asyncio.get_running_loop().time() + 90
+                while asyncio.get_running_loop().time() < deadline:
+                    await asyncio.sleep(2)
+                    if "log-in" not in page.url:
+                        break
+                await page.wait_for_timeout(2000)
+            else:
+                logger.info("Freepik: Đã đăng nhập (dùng cookies), bỏ qua form login.")
+
+            await page.click('a[href*="ai-video-generator"]')
             logger.info("Freepik: Đã mở Video Generator")
 
             await page.wait_for_timeout(2000)
@@ -82,6 +99,17 @@ class FreepikVideoGeneratorFlow:
 
             await self._upload_video(page, video_file)
             logger.info("Freepik: Đã upload video")
+
+            await page.wait_for_timeout(500)
+
+            if kling_prompt:
+                prompt_sel = 'textarea[data-cy="form-textarea"]'
+                try:
+                    await page.wait_for_selector(prompt_sel, state="visible", timeout=5000)
+                    await page.fill(prompt_sel, kling_prompt)
+                    logger.info("Freepik: Đã điền kling_prompt vào ô Describe your video")
+                except Exception as e:
+                    logger.warning("Freepik: Không điền được kling_prompt: %s", e)
 
             await page.wait_for_timeout(500)
 
@@ -116,11 +144,19 @@ class FreepikVideoGeneratorFlow:
         await page.set_input_files(input_selector, str(video_file))
 
 
-async def generate_video_from_config(start_image: Path, video_file: Path) -> None:
+async def generate_video_from_config(
+    start_image: Path,
+    video_file: Path,
+    kling_prompt: Optional[str] = None,
+) -> None:
     email = config_manager.get("freepik_account.email", "")
     password = config_manager.get("freepik_account.password", "")
     if not email or not password:
         raise RuntimeError("Chưa cấu hình freepik_account.email/password trong data/config.json")
     flow = FreepikVideoGeneratorFlow(email=email, password=password)
-    await flow.generate_video(start_image=start_image, video_file=video_file)
+    await flow.generate_video(
+        start_image=start_image,
+        video_file=video_file,
+        kling_prompt=kling_prompt,
+    )
 

@@ -2,21 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
-from playwright.async_api import async_playwright, BrowserContext, Page
+from playwright.async_api import async_playwright, Page
 
 from ..config.config_manager import config_manager
-from ..config.constants import COOKIES_DIR
+from .gemini_browser import ensure_gemini_login, load_gemini_cookies
 
 logger = logging.getLogger(__name__)
-
-GEMINI_URL = "https://gemini.google.com/app"
-SIGN_IN_SELECTOR = 'a[aria-label="Sign in"], a[href*="ServiceLogin"]'
 
 
 @dataclass
@@ -44,7 +40,7 @@ class GeminiImageGenerator:
 
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=False)
-            storage = self._load_gemini_cookies()
+            storage = load_gemini_cookies()
             context = await browser.new_context(
                 storage_state=storage if storage else None
             )
@@ -55,7 +51,7 @@ class GeminiImageGenerator:
             await asyncio.sleep(2)
             logger.info("Gemini KOL: Đã load trang Gemini")
 
-            await self._ensure_gemini_login(page, context, timeout)
+            await ensure_gemini_login(page, context, float(timeout))
 
             await self._select_pro_mode(page)
 
@@ -102,93 +98,6 @@ class GeminiImageGenerator:
             await browser.close()
 
             return generated_image_path
-
-    def _load_gemini_cookies(self) -> Optional[Dict[str, object]]:
-        path = COOKIES_DIR / "google_cookies.json"
-        if not path.exists():
-            return None
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            logger.info("Gemini KOL: Đã load cookies từ %s", path)
-            return data
-        except Exception as e:
-            logger.warning("Gemini KOL: Không đọc được cookies: %s", e)
-            return None
-
-    async def _save_gemini_cookies(self, context: BrowserContext) -> None:
-        try:
-            state = await context.storage_state()
-            COOKIES_DIR.mkdir(parents=True, exist_ok=True)
-            path = COOKIES_DIR / "google_cookies.json"
-            path.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
-            logger.info("Gemini KOL: Đã lưu cookies -> %s", path)
-        except Exception as e:
-            logger.warning("Gemini KOL: Không lưu được cookies: %s", e)
-
-    async def _check_gemini_logged_in(self, page: Page) -> bool:
-        try:
-            link = await page.query_selector(SIGN_IN_SELECTOR)
-            if link is None:
-                logger.info("Gemini KOL: Đã đăng nhập (không thấy Sign in)")
-                return True
-            logger.info("Gemini KOL: Chưa đăng nhập (có nút Sign in)")
-            return False
-        except Exception as e:
-            logger.warning("Gemini KOL: Lỗi kiểm tra login: %s", e)
-            return False
-
-    async def _ensure_gemini_login(self, page: Page, context: BrowserContext, timeout: float) -> None:
-        logged_in = await self._check_gemini_logged_in(page)
-        if logged_in:
-            await self._save_gemini_cookies(context)
-            return
-
-        email = config_manager.get("gemini_account.email", "")
-        password = config_manager.get("gemini_account.password", "")
-        if not email or not password:
-            logger.warning("Gemini KOL: Chưa cấu hình gemini_account.email/password trong data/config.json")
-            return
-
-        logger.info("Gemini KOL: Bắt đầu login Gemini với email %s***", email[:3] if len(email) >= 3 else "")
-
-        try:
-            sign_in = await page.query_selector(SIGN_IN_SELECTOR)
-            if not sign_in:
-                await self._save_gemini_cookies(context)
-                return
-
-            await sign_in.click()
-            logger.info("Gemini KOL: Đã click Sign in")
-
-            await page.wait_for_selector('input[type="email"][id="identifierId"]', timeout=timeout)
-            await page.fill('input[type="email"][id="identifierId"]', email)
-            await page.click('button:has-text("Next")')
-            logger.info("Gemini KOL: Đã nhập email, Next")
-
-            await page.wait_for_selector('input[type="password"][name="Passwd"]', timeout=timeout)
-            await page.fill('input[type="password"][name="Passwd"]', password)
-            await page.click('button:has-text("Next")')
-            logger.info("Gemini KOL: Đã nhập password, Next")
-
-            await asyncio.sleep(3)
-
-            if await self._check_gemini_logged_in(page):
-                logger.info("Gemini KOL: Đăng nhập thành công")
-                await self._save_gemini_cookies(context)
-
-            try:
-                agree = await page.query_selector(
-                    'button[data-test-id="upload-image-agree-button"], '
-                    'button:has-text("Agree"), button[aria-label*="Connect"]'
-                )
-                if agree:
-                    await agree.click()
-                    await asyncio.sleep(1)
-                    await self._save_gemini_cookies(context)
-            except Exception as e:
-                pass
-        except Exception as e:
-            logger.warning("Gemini KOL: Lỗi khi login Gemini: %s", e)
 
     async def _select_pro_mode(self, page: Page) -> None:
         logger.info("Gemini KOL: Bấm chọn mode (Pro)...")

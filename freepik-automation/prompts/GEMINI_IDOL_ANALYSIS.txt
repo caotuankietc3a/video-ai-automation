@@ -1,0 +1,64 @@
+IDOL_DANCE_ANALYSIS
+Phân tích ảnh idol và video nhảy để tạo dữ liệu cấu trúc phục vụ tạo PROMPT cho Kling AI.
+
+Đầu vào:
+- 1 ảnh idol (idol là nhân vật chính, đứng rõ ràng trong khung hình).
+- 1 video nhảy TikTok/Vinahouse.
+
+Yêu cầu:
+1. Phân tích idol:
+   - name: tên hoặc mô tả ngắn (nếu không biết tên, mô tả dạng \"female idol\", \"male dancer\", v.v.).
+   - outfit_description: mô tả chi tiết trang phục, phụ kiện, chất liệu, độ bó/rộng.
+   - pose_style: dáng đứng/chuyển động đặc trưng (gợi ý giúp pose khi render).
+   - body_type: mô tả tổng quát dáng người (slim, curvy, athletic, muscular, petite,...).
+
+2. Phân tích nhảy:
+   - style: thể loại nhảy (TikTok dance, Vinahouse club, sexy dance, shuffle, hip-hop,...).
+   - bpm: ước lượng BPM gần đúng (số nguyên).
+   - energy_level: mức năng lượng tổng thể (low, medium, high) + mô tả ngắn.
+
+3. Bối cảnh/khung cảnh (BackgroundContext) cho idol:
+   - location: mô tả nơi chốn chính xác và gợi hình (ví dụ: \"neon-lit rooftop in a modern Asian city\", \"underground Vinahouse club\", \"small bedroom studio with LED strips\").
+   - environment_details: các chi tiết môi trường xung quanh (đèn, crowd, đồ vật, màn hình LED, laser, khói, bàn ghế,...).
+   - depth_and_space: cách bố trí không gian để idol nổi bật (foreground/background, khoảng cách với background, khoảng trống xung quanh idol).
+
+4. Tông màu và không khí tổng thể (ColorMood) cho bối cảnh:
+   - primary_palette: danh sách 2-4 màu chính (ví dụ: [\"electric blue\", \"magenta\", \"deep purple\"]).
+   - accent_colors: danh sách màu phụ dùng để nhấn (ví dụ: [\"neon green\", \"warm gold highlights\"]). 
+   - overall_mood: mô tả vibe tổng thể (energetic party, dreamy, romantic, dark club, futuristic, cinematic,...).
+   - lighting_style: mô tả kiểu ánh sáng (backlight, rim light, soft front fill, flashing stage lights, strobe, mixed color spotlights,...).
+
+5. Thêm gợi ý nếu cần để prompt Kling tối ưu cho video dọc TikTok/Vinahouse.
+
+Định dạng trả về:
+- TRẢ VỀ DUY NHẤT MỘT JSON HỢP LỆ, KHÔNG GIẢI THÍCH THÊM.
+- Cấu trúc JSON:
+{
+  "idol": {
+    "name": string | null,
+    "outfit_description": string,
+    "pose_style": string,
+    "body_type": string | null
+  },
+  "dance": {
+    "style": string,
+    "bpm": number | null,
+    "energy_level": string
+  },
+  "background": {
+    "location": string,
+    "environment_details": string,
+    "depth_and_space": string
+  },
+  "color_mood": {
+    "primary_palette": string[],
+    "accent_colors": string[],
+    "overall_mood": string,
+    "lighting_style": string
+  },
+  "extra_instructions": string | null
+}
+
+Lưu ý:
+- Bắt buộc JSON phải parse được, không chứa comment, không chứa text ngoài JSON.
+- Nếu không đủ thông tin cho một field, dùng null hoặc string mô tả tốt nhất có thể.

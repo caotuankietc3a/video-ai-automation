@@ -22,7 +22,7 @@ class ResultPanel(ctk.CTkFrame):
         self.tabview.pack(fill="both", expand=True)
 
         self.kol_image_tab = self.tabview.add("KOL Image")
-        self.prompt_tab = self.tabview.add("Nano Banana Prompt")
+        self.prompt_tab = self.tabview.add("Kling Prompt")
         self.video_tab = self.tabview.add("Video Result")
         self.logs_tab = self.tabview.add("Logs")
 

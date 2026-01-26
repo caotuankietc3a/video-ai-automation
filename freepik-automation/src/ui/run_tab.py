@@ -35,14 +35,15 @@ class RunTab(ctk.CTkFrame):
         self.dance_video_path: Path | None = None
         self.kol_image_path: Path | None = None
         self.first_frame_path: Path | None = None
+        self.video_start_image_path: Path | None = None
 
         self.project_panel = ProjectPanel(
             self,
             on_idol_image_select=self._on_idol_image_select,
             on_dance_video_select=self._on_dance_video_select,
             on_first_frame_select=self._on_first_frame_select,
+            on_video_start_image_select=self._on_video_start_image_select,
             on_generate_kol=self._on_generate_kol,
-            on_generate_prompt=self._on_generate_prompt,
             on_generate_video=self._on_generate_video,
         )
         self.result_panel = ResultPanel(self)
@@ -63,6 +64,9 @@ class RunTab(ctk.CTkFrame):
     def _on_first_frame_select(self, file_path: str | None):
         if file_path:
             self.first_frame_path = Path(file_path)
+
+    def _on_video_start_image_select(self, file_path: str | None):
+        self.video_start_image_path = Path(file_path) if file_path else None
 
     def _on_generate_kol(self):
         if not self.idol_image_path:
@@ -133,50 +137,6 @@ class RunTab(ctk.CTkFrame):
 
         return str(kol_path)
 
-    def _on_generate_prompt(self):
-        if not self.idol_image_path:
-            messagebox.showerror("Lỗi", "Vui lòng chọn ảnh idol trước")
-            return
-
-        if not self.dance_video_path:
-            messagebox.showerror("Lỗi", "Vui lòng chọn video nhảy trước")
-            return
-
-        def run_async():
-            try:
-                self.result_panel.add_log("Step: Bắt đầu tạo Nano Banana Prompt...")
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                result = loop.run_until_complete(self._generate_prompt_async())
-                loop.close()
-                if result:
-                    self.result_panel.update_prompt(result.get("nano_banana_prompt", ""))
-                    self.result_panel.add_log("Step: Đã tạo Nano Banana Prompt xong.")
-                    messagebox.showinfo("Thành công", "Đã tạo Nano Banana Prompt")
-            except Exception as e:
-                self.result_panel.add_log(f"Lỗi: {e}")
-                messagebox.showerror("Lỗi", f"Không thể tạo prompt: {e}")
-
-        thread = threading.Thread(target=run_async, daemon=True)
-        thread.start()
-
-    async def _generate_prompt_async(self) -> dict | None:
-        from ..cli.run_freepik_flow import run_flow
-        from ..config.constants import BASE_DIR
-
-        start_image = self.kol_image_path or self.idol_image_path
-
-        result = await run_flow(
-            idol_image=start_image,
-            dance_video=self.dance_video_path,
-            mode="prompt_only",
-            project_root=BASE_DIR,
-            generate_kol_image=False,
-            first_frame=self.first_frame_path,
-        )
-
-        return result
-
     def _on_generate_video(self):
         if not self.idol_image_path:
             messagebox.showerror("Lỗi", "Vui lòng chọn ảnh idol trước")
@@ -187,32 +147,37 @@ class RunTab(ctk.CTkFrame):
             return
 
         def run_async():
+            result: dict | None = None
             try:
-                self.result_panel.add_log("Step: Bắt đầu tạo video (Freepik)...")
+                self.result_panel.after(0, lambda: self.result_panel.add_log("Step: Bắt đầu tạo video (Freepik/Kling)..."))
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                loop.run_until_complete(self._generate_video_async())
+                result = loop.run_until_complete(self._generate_video_async())
                 loop.close()
-                self.result_panel.add_log("Step: Đã gửi lệnh Generate video xong.")
-                messagebox.showinfo("Thành công", "Đã tạo video")
+                kling_prompt = (result or {}).get("kling_prompt", "")
+                self.result_panel.after(0, lambda p=kling_prompt: self.result_panel.update_prompt(p))
+                self.result_panel.after(0, lambda: self.result_panel.add_log("Step: Đã chạy Generate video xong."))
+                self.result_panel.after(0, lambda: messagebox.showinfo("Thành công", "Đã tạo video (Freepik/Kling)"))
             except Exception as e:
-                self.result_panel.add_log(f"Lỗi: {e}")
-                messagebox.showerror("Lỗi", f"Không thể tạo video: {e}")
+                err_msg = str(e)
+                self.result_panel.after(0, lambda m=err_msg: self.result_panel.add_log(f"Lỗi: {m}"))
+                self.result_panel.after(0, lambda m=err_msg: messagebox.showerror("Lỗi", f"Không thể tạo video: {m}"))
 
         thread = threading.Thread(target=run_async, daemon=True)
         thread.start()
 
-    async def _generate_video_async(self):
+    async def _generate_video_async(self) -> dict | None:
         from ..cli.run_freepik_flow import run_flow
         from ..config.constants import BASE_DIR
 
         start_image = self.kol_image_path or self.idol_image_path
 
-        await run_flow(
+        return await run_flow(
             idol_image=start_image,
             dance_video=self.dance_video_path,
             mode="full",
             project_root=BASE_DIR,
             generate_kol_image=False,
             first_frame=self.first_frame_path,
+            start_image_override=self.video_start_image_path,
         )
