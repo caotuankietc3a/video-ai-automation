@@ -817,13 +817,13 @@ class VEO3Flow:
                     print("[Step 1/6] ✓ Browser đã khởi động với cookies đã được clear")
                 else:
                     print("[Step 1/6] ✓ Browser đã khởi động")
+
+                # Cho user thời gian xử lý recaptcha / xác minh bảo mật nếu có
+                await self._wait_for_recaptcha_if_needed(project_config)
                 
                 print("[Step 2/6] Điều hướng đến project...")
                 is_new_project = await self._navigate_to_project(project_config)
                 print(f"[Step 2/6] ✓ Đã điều hướng đến project (is_new_project: {is_new_project})")
-
-                # Cho user thời gian xử lý recaptcha / xác minh bảo mật nếu có
-                await self._wait_for_recaptcha_if_needed(project_config)
                 
                 project_link = project_config.get("project_link", "")
                 if project_link and on_project_link_updated:

@@ -235,31 +235,23 @@ class BrowserAutomation:
     async def click(self, selector: str):
         await self._ensure_page()
         try:
-            element_box = await self.page.evaluate(f"""
-                (selector) => {{
-                    const el = document.querySelector(selector);
-                    if (!el) return null;
-                    const rect = el.getBoundingClientRect();
-                    return {{
-                        x: rect.left + rect.width / 2,
-                        y: rect.top + rect.height / 2,
-                        visible: rect.width > 0 && rect.height > 0
-                    }};
-                }}
-            """, selector)
-            
-            if element_box and element_box.get("visible"):
-                await self._human_mouse_move(element_box["x"], element_box["y"])
-                await self._human_delay(0.2, 0.5)
-            
-            await self.page.click(selector)
+            loc = self.page.locator(selector).first
+            try:
+                box = await loc.bounding_box()
+                if box:
+                    await self._human_mouse_move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+                    await self._human_delay(0.2, 0.5)
+            except Exception:
+                pass
+
+            await loc.click(timeout=self.timeout)
             await self._human_delay(0.3, 0.7)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 logger.warning("Page/context destroyed during click, recreating page...")
                 await self._ensure_page()
                 await self._human_delay(0.2, 0.4)
-                await self.page.click(selector)
+                await self.page.locator(selector).first.click(timeout=self.timeout)
                 await self._human_delay(0.3, 0.7)
             else:
                 raise
@@ -551,29 +543,62 @@ class BrowserAutomation:
             await self.wait_for_selector(email_selector, timeout=self.timeout)
             logger.info("Đã tìm thấy ô nhập email, đang điền email...")
             await self.fill(email_selector, email)
-            await asyncio.sleep(0.5)
+            await self._human_delay(0.4, 0.8)
             
             logger.info("Đã điền email, đang click Next...")
             next_button_selector = 'button:has-text("Next")'
             await self.click(next_button_selector)
-            await asyncio.sleep(2)
+            await self._human_delay(1.2, 2.2)
+
+            for _ in range(2):
+                restarted = await self._handle_google_something_went_wrong_restart()
+                if not restarted:
+                    break
+                logger.info("Đã gặp lỗi 'Something went wrong', đang retry lần 2...")
+                await self.wait_for_selector(email_selector, timeout=self.timeout)
+                await self.fill(email_selector, email)
+                await self._human_delay(0.4, 0.8)
+                logger.info("Đang click Next...")
+                await self.click(next_button_selector)
+                await self._human_delay(1.2, 2.2)
             
             logger.info("Đang chờ form nhập password xuất hiện...")
             password_selector = 'input[type="password"][name="Passwd"]'
             await self.wait_for_selector(password_selector, timeout=self.timeout)
             logger.info("Đã tìm thấy ô nhập password, đang điền password...")
             await self.fill(password_selector, password)
-            await asyncio.sleep(0.5)
+            await self._human_delay(0.4, 0.8)
             
             logger.info("Đã điền password, đang click Next...")
             await self.click(next_button_selector)
-            await asyncio.sleep(3)
+            await self._human_delay(2.2, 3.5)
             
             logger.info("✓ Hoàn tất quá trình đăng nhập Google")
             await self._save_cookies("google")
         except Exception as e:
             logger.error(f"Lỗi khi đăng nhập Google: {e}")
             raise
+
+    async def _handle_google_something_went_wrong_restart(self) -> bool:
+        await self._ensure_page()
+        try:
+            has_error = False
+            try:
+                err_text = self.page.get_by_text("Something went wrong", exact=False)
+                if await err_text.is_visible():
+                    has_error = True
+            except Exception:
+                pass
+
+            restart_btn = self.page.get_by_text("Restart", exact=False).first
+            if has_error or await restart_btn.is_visible():
+                logger.warning("Google login gặp lỗi 'Something went wrong', đang bấm Restart...")
+                await restart_btn.click(timeout=10000)
+                await self._human_delay(1.0, 2.0)
+                return True
+            return False
+        except Exception:
+            return False
 
     def _get_cookies_file_path(self, domain: str = "google") -> str:
         return os.path.join(COOKIES_DIR, f"{domain}_cookies.json")
