@@ -883,7 +883,7 @@ class VEO3Flow:
             print("[Step 4.5/6] ✓ Đã cấu hình outputs per prompt" if is_first_video else "[Step 4/6] ✓ Đã cấu hình outputs per prompt")
 
             print("[Step 4.6/6] Đang chờ scenebuilder load và mô phỏng hành vi người dùng (30s)...")
-            await self.browser.simulate_human_behavior(duration_seconds=30)
+            await self.browser.simulate_human_behavior(duration_seconds=3)
             print("[Step 4.6/6] ✓ Đã hoàn thành mô phỏng hành vi người dùng")
 
             print("[Step 5/6] Điền prompt và tạo video..." if is_first_video else "[Step 5/6] Điền prompt và tạo video...")
