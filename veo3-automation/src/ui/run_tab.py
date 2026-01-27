@@ -13,12 +13,29 @@ from ..utils.logger import Logger
 class RunTab(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.pack(fill="both", expand=True)
-        
-        self.workflow = None
-        self.video_paths = []
-        self.logger = None
-        self.manual_video_analysis: str | None = None
+        try:
+            self.pack(fill="both", expand=True)
+            
+            self.workflow = None
+            self.video_paths = []
+            self.logger = None
+            self.manual_video_analysis: str | None = None
+            
+            self.project_panel = ProjectPanel(
+                self, 
+                on_project_change=self._on_project_change, 
+                on_start=self._start_workflow, 
+                on_stop=self._stop_workflow,
+                on_analyze_video=self._analyze_video,
+                on_generate_content=lambda: self._run_step("generate_content"),
+                on_run_all=self._run_all_steps
+            )
+            self.result_panel = ResultPanel(self, on_run_step=self._run_step, on_retry_video=self._retry_video)
+        except Exception as e:
+            import traceback
+            print(f"Lỗi khi khởi tạo RunTab: {e}")
+            traceback.print_exc()
+            raise
     
     def _close_browser_tab(self, loop):
         try:
@@ -36,17 +53,6 @@ class RunTab(ctk.CTkFrame):
         except Exception as e:
             if self.logger:
                 self.logger.warning(f"Lỗi khi đóng/mở tab mới: {e}")
-        
-        self.project_panel = ProjectPanel(
-            self, 
-            on_project_change=self._on_project_change, 
-            on_start=self._start_workflow, 
-            on_stop=self._stop_workflow,
-            on_analyze_video=self._analyze_video,
-            on_generate_content=lambda: self._run_step("generate_content"),
-            on_run_all=self._run_all_steps
-        )
-        self.result_panel = ResultPanel(self, on_run_step=self._run_step, on_retry_video=self._retry_video)
     
     def _on_project_change(self):
         project_file = self.project_panel.project_file_var.get()
