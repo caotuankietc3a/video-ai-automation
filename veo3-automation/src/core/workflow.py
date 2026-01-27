@@ -31,6 +31,7 @@ class Workflow:
         self.scene_generator = SceneGenerator(project_name)
         self.veo3_prompt_generator = VEO3PromptGenerator(project_name)
         self.veo3_flow: Optional[VEO3Flow] = None
+        self._recaptcha_wait_done = False
         
         self.is_running = False
         self.progress_callback: Optional[Callable[[str, float], None]] = None
@@ -54,6 +55,28 @@ class Workflow:
                 self.logger.info("Đã đóng tab cũ và mở tab mới sau step")
         except Exception as e:
             self.logger.warning(f"Lỗi khi đóng/mở tab mới: {e}")
+
+    async def _wait_for_recaptcha_at_workflow_start(self, project_config: Dict[str, Any]) -> None:
+        if self._recaptcha_wait_done:
+            return
+
+        use_browser = bool(project_config.get("use_browser_automation", True))
+        if not use_browser:
+            self._recaptcha_wait_done = True
+            return
+
+        try:
+            # đảm bảo browser đã start để user thấy UI (nếu cần giải captcha)
+            await self._get_browser().start()
+        except Exception:
+            pass
+
+        try:
+            await self._get_veo3_flow()._wait_for_recaptcha_if_needed(project_config)
+        except Exception as e:
+            self.logger.warning(f"Lỗi khi chờ recaptcha ở đầu workflow: {e}")
+        finally:
+            self._recaptcha_wait_done = True
     
     def set_progress_callback(self, callback: Callable[[str, float], None]):
         self.progress_callback = callback
@@ -148,6 +171,7 @@ class Workflow:
         )
 
         try:
+            await self._wait_for_recaptcha_at_workflow_start(project_config)
             project = project_manager.load_project(project_file) if project_file else None
             
             if current_step == "complete":

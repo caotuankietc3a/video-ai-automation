@@ -17,6 +17,30 @@ class VEO3Flow:
         import random
         delay = random.uniform(min_seconds, max_seconds)
         await asyncio.sleep(delay)
+
+    async def _wait_for_recaptcha_if_needed(self, project_config: Dict[str, Any]) -> None:
+        """
+        Chờ user xử lý recaptcha (nếu có) sau khi browser vừa start / login.
+        Thời gian chờ có thể cấu hình qua project_config['recaptcha_wait_seconds'], mặc định 60s.
+        """
+        try:
+            wait_seconds = int(project_config.get("recaptcha_wait_seconds", 90))
+        except Exception:
+            wait_seconds = 90
+
+        if wait_seconds <= 0:
+            return
+
+        print(f"[Recaptcha] Đang tạm dừng {wait_seconds}s để bạn xử lý reCAPTCHA / xác minh bảo mật trong browser (nếu xuất hiện)...")
+        elapsed = 0
+        step = 5
+        while elapsed < wait_seconds:
+            remaining = wait_seconds - elapsed
+            print(f"[Recaptcha] Còn khoảng {remaining}s... (có thể điều chỉnh trong 'recaptcha_wait_seconds')")
+            sleep_time = step if remaining > step else remaining
+            await asyncio.sleep(sleep_time)
+            elapsed += sleep_time
+        print("[Recaptcha] Hết thời gian chờ, tiếp tục workflow.")
     
     def _extract_project_id(self, url: str) -> Optional[str]:
         if not url or "/project/" not in url:
@@ -797,6 +821,9 @@ class VEO3Flow:
                 print("[Step 2/6] Điều hướng đến project...")
                 is_new_project = await self._navigate_to_project(project_config)
                 print(f"[Step 2/6] ✓ Đã điều hướng đến project (is_new_project: {is_new_project})")
+
+                # Cho user thời gian xử lý recaptcha / xác minh bảo mật nếu có
+                await self._wait_for_recaptcha_if_needed(project_config)
                 
                 project_link = project_config.get("project_link", "")
                 if project_link and on_project_link_updated:
@@ -949,11 +976,11 @@ class VEO3Flow:
                     print(f"⚠ Lỗi khi lưu video vào project: {e}")
                 
                 try:
-                await self.browser.close_current_tab()
-                await self._human_delay(0.5, 1.0)
-                await self.browser.new_tab()
-                await self._human_delay(1.0, 2.0)
-                print("✓ Đã đóng tab cũ và mở tab mới")
+                    await self.browser.close_current_tab()
+                    await self._human_delay(0.5, 1.0)
+                    await self.browser.new_tab()
+                    await self._human_delay(1.0, 2.0)
+                    print("✓ Đã đóng tab cũ và mở tab mới")
                 except Exception as e:
                     print(f"⚠ Lỗi khi đóng/mở tab mới: {e}")
                 

@@ -44,44 +44,93 @@ class BrowserAutomation:
         logger.info(f"BrowserAutomation instance created: {self.instance_id}")
     
     async def start(self, clear_cookies: bool = False):
-        if self._is_page_valid() and not clear_cookies:
+        """
+        KHÔNG restart browser nếu đã launch.
+        - Lần đầu: launch playwright + browser + context + page.
+        - Các lần sau:
+          - clear_cookies=True: chỉ recreate context/page (trong cùng browser) để reset session.
+          - clear_cookies=False: đảm bảo context/page còn sống; nếu page chết thì recreate page.
+        """
+        await self._ensure_browser_launched()
+
+        if clear_cookies:
+            await self._recreate_context(storage_state=None)
+        else:
+            await self._ensure_context()
+
+        await self._ensure_page()
+
+        if clear_cookies:
+            logger.info(f"Browser started (context recreated, cookies cleared) for instance: {self.instance_id}")
+        else:
+            logger.info(f"Browser started (ensure page) for instance: {self.instance_id}")
+
+        if not self.headless and platform.system() == 'Darwin':
+            await self._set_window_position_mac()
+
+    async def _ensure_browser_launched(self) -> None:
+        if self.playwright is None:
+            self.playwright = await async_playwright().start()
+
+        if self.browser is not None:
             return
-        try:
-            if self.browser:
-                await self.stop()
-        except Exception:
-            pass
-        
-        self.playwright = await async_playwright().start()
-        launch_args = []
-        
+
+        launch_args: list[str] = []
         if not self.headless:
             launch_args.extend([
                 f'--window-position={self.window_position_x},{self.window_position_y}',
                 f'--window-size={self.window_width},{self.window_height}',
             ])
-        
-        storage_state = None if clear_cookies else self._load_cookies()
-        
+
         self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
             channel=self.channel,
             args=launch_args if launch_args else None,
         )
+
+    async def _ensure_context(self) -> None:
+        if self.context is None:
+            storage_state = self._load_cookies()
+            self.context = await self.browser.new_context(
+                viewport={'width': self.window_width, 'height': self.window_height} if not self.headless else None,
+                storage_state=storage_state,
+            )
+            return
+
+        # context có thể đã bị close -> thao tác thử để phát hiện
+        try:
+            _ = self.context.pages
+        except Exception:
+            self.context = None
+            await self._ensure_context()
+
+    async def _recreate_context(self, storage_state: Optional[Dict[str, Any]] = None) -> None:
+        # chỉ đóng context cũ, KHÔNG đóng browser
+        try:
+            if self.context is not None:
+                await self.context.close()
+        except Exception:
+            pass
         self.context = await self.browser.new_context(
             viewport={'width': self.window_width, 'height': self.window_height} if not self.headless else None,
-            storage_state=storage_state
+            storage_state=storage_state,
         )
+        self.page = None
+
+    async def _ensure_page(self) -> None:
+        if self.browser is None:
+            await self._ensure_browser_launched()
+        await self._ensure_context()
+
+        if self.page is not None:
+            try:
+                if not self.page.is_closed():
+                    return
+            except Exception:
+                pass
+
         self.page = await self.context.new_page()
         self.page.set_default_timeout(self.timeout)
-        
-        if clear_cookies:
-            logger.info(f"Browser started with cleared cookies for instance: {self.instance_id}")
-        else:
-            logger.info(f"Browser started for instance: {self.instance_id}")
-        
-        if not self.headless and platform.system() == 'Darwin':
-            await self._set_window_position_mac()
     
     async def stop(self):
         logger.info(f"Stopping browser instance: {self.instance_id}")
@@ -141,10 +190,7 @@ class BrowserAutomation:
     
     async def new_tab(self):
         import random
-        if not self.context:
-            await self.start()
-        if not self.context:
-            raise RuntimeError("Browser context not available")
+        await self._ensure_page()
         
         await self._human_delay(0.4, 0.8)
         self.page = await self.context.new_page()
@@ -154,10 +200,7 @@ class BrowserAutomation:
         return self.page
     
     async def navigate(self, url: str):
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             await self._human_delay(0.3, 0.7)
             await self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
@@ -165,8 +208,8 @@ class BrowserAutomation:
             await self._human_delay(0.5, 1.0)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed during navigation, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during navigation, recreating page...")
+                await self._ensure_page()
                 await self._human_delay(0.3, 0.7)
                 await self.page.goto(url, wait_until="networkidle", timeout=self.timeout)
                 await self.page.wait_for_load_state("networkidle", timeout=self.timeout)
@@ -190,10 +233,7 @@ class BrowserAutomation:
             return False
     
     async def click(self, selector: str):
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             element_box = await self.page.evaluate(f"""
                 (selector) => {{
@@ -216,8 +256,8 @@ class BrowserAutomation:
             await self._human_delay(0.3, 0.7)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during click, recreating page...")
+                await self._ensure_page()
                 await self._human_delay(0.2, 0.4)
                 await self.page.click(selector)
                 await self._human_delay(0.3, 0.7)
@@ -225,61 +265,49 @@ class BrowserAutomation:
                 raise
     
     async def fill(self, selector: str, text: str):
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             await self.page.fill(selector, text)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during fill, recreating page...")
+                await self._ensure_page()
                 await self.page.fill(selector, text)
             else:
                 raise
     
     async def wait_for_selector(self, selector: str, timeout: Optional[int] = None):
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             await self.page.wait_for_selector(selector, timeout=timeout or self.timeout)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during wait_for_selector, recreating page...")
+                await self._ensure_page()
                 await self.page.wait_for_selector(selector, timeout=timeout or self.timeout)
             else:
                 raise
     
     async def get_text(self, selector: str) -> str:
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             return await self.page.text_content(selector) or ""
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during get_text, recreating page...")
+                await self._ensure_page()
                 return await self.page.text_content(selector) or ""
             else:
                 raise
     
     async def query_all(self, selector: str) -> List:
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             return await self.page.query_selector_all(selector)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during query_all, recreating page...")
+                await self._ensure_page()
                 return await self.page.query_selector_all(selector)
             else:
                 raise
@@ -322,40 +350,31 @@ class BrowserAutomation:
         await self.page.screenshot(path=path)
     
     async def evaluate(self, script: str, *args):
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             return await self.page.evaluate(script, *args)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during evaluate, recreating page...")
+                await self._ensure_page()
                 return await self.page.evaluate(script, *args)
             else:
                 raise
     
     async def get_current_url(self) -> str:
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             return self.page.url
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during get_current_url, recreating page...")
+                await self._ensure_page()
                 return self.page.url
             else:
                 raise
     
     async def drag(self, selector: str, target_x: int, target_y: int):
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             element = await self.page.query_selector(selector)
             if element:
@@ -367,8 +386,8 @@ class BrowserAutomation:
                     await self.page.mouse.up()
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during drag, recreating page...")
+                await self._ensure_page()
                 element = await self.page.query_selector(selector)
                 if element:
                     box = await element.bounding_box()
@@ -381,16 +400,13 @@ class BrowserAutomation:
                 raise
 
     async def set_input_files(self, selector: str, file_paths: List[str]) -> None:
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         try:
             await self.page.set_input_files(selector, file_paths)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during set_input_files, recreating page...")
+                await self._ensure_page()
                 await self.page.set_input_files(selector, file_paths)
             else:
                 raise
@@ -402,8 +418,7 @@ class BrowserAutomation:
         """
         logger.info("Bắt đầu kiểm tra đăng nhập Gemini...")
         
-        if not self.page:
-            await self.start()
+        await self._ensure_page()
 
         gemini_url = config_manager.get("video_analysis.url", "https://gemini.google.com/app")
         
@@ -428,8 +443,8 @@ class BrowserAutomation:
             )
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
-                logger.warning("Page context destroyed during query_selector, restarting browser...")
-                await self.start()
+                logger.warning("Page/context destroyed during query_selector (ensure_gemini_login), recreating page...")
+                await self._ensure_page()
                 await self.navigate(gemini_url)
                 sign_in_link = await self.page.query_selector(
                     'a[aria-label="Sign in"], a[href*="ServiceLogin"]'
@@ -505,10 +520,7 @@ class BrowserAutomation:
         """
         logger.info("Bắt đầu quá trình đăng nhập Google...")
         
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         
         current_url = await self.get_current_url()
         if current_url and "accounts.google.com" not in current_url:
@@ -751,10 +763,7 @@ class BrowserAutomation:
         """
         logger.info("Bắt đầu chọn Fast mode...")
         
-        if not self._is_page_valid():
-            await self.start()
-        if not self.page:
-            raise RuntimeError("Browser not started")
+        await self._ensure_page()
         
         try:
             pro_button_selector = (
