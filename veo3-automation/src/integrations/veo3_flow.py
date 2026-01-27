@@ -13,6 +13,11 @@ class VEO3Flow:
         self.gemini_client = GeminiClient()
         self.flow_url = "https://labs.google/fx/tools/flow"
     
+    async def _human_delay(self, min_seconds: float = 0.3, max_seconds: float = 0.8):
+        import random
+        delay = random.uniform(min_seconds, max_seconds)
+        await asyncio.sleep(delay)
+    
     def _extract_project_id(self, url: str) -> Optional[str]:
         if not url or "/project/" not in url:
             return None
@@ -48,9 +53,9 @@ class VEO3Flow:
                 print("⚠ current_url trống hoặc about:blank, đang navigate tới project link...")
                 await self.browser.clear_cookies()
                 await self.browser.navigate(project_link)
-                await asyncio.sleep(3)
+                await self._human_delay(2.5, 3.5)
                 await self.browser.login_to_google()
-                await asyncio.sleep(2)
+                await self._human_delay(1.5, 2.5)
                 current_url = await self.browser.get_current_url()
 
             expected_project_id = self._extract_project_id(project_link)
@@ -69,9 +74,9 @@ class VEO3Flow:
                 print(f"⚠ Browser không ở đúng project/scene, đang navigate lại...")
                 await self.browser.clear_cookies()
                 await self.browser.navigate(project_link)
-                await asyncio.sleep(3)
+                await self._human_delay(2.5, 3.5)
                 await self.browser.login_to_google()
-                await asyncio.sleep(2)
+                await self._human_delay(1.5, 2.5)
                 
                 current_url = await self.browser.get_current_url()
                 if current_url and "/project/" in current_url:
@@ -111,9 +116,9 @@ class VEO3Flow:
         
         if project_link:
             await browser.navigate(project_link)
-            await asyncio.sleep(3)
+            await self._human_delay(2.5, 3.5)
             await browser.login_to_google()
-            await asyncio.sleep(2)
+            await self._human_delay(1.5, 2.5)
             
             current_url = await browser.get_current_url()
             if current_url and "/project/" in current_url:
@@ -134,20 +139,20 @@ class VEO3Flow:
         else:
             is_new_project = True
             await browser.navigate(self.flow_url)
-            await asyncio.sleep(2)
+            await self._human_delay(1.5, 2.5)
             
             create_with_flow_selector = 'button:has-text("Create with Flow")'
             await browser.wait_for_selector(create_with_flow_selector, timeout=60000)
             await browser.click(create_with_flow_selector)
-            await asyncio.sleep(2)
+            await self._human_delay(1.5, 2.5)
             
             await browser.login_to_google()
-            await asyncio.sleep(3)
+            await self._human_delay(2.5, 3.5)
             
             new_project_selector = 'button:has-text("New project")'
             await browser.wait_for_selector(new_project_selector, timeout=10000)
             await browser.click(new_project_selector)
-            await asyncio.sleep(2)
+            await self._human_delay(1.5, 2.5)
             
             current_url = await browser.get_current_url()
             if current_url and "/project/" in current_url:
@@ -177,7 +182,7 @@ class VEO3Flow:
             )
             await self.browser.wait_for_selector(scenebuilder_button_selector, timeout=10000)
             await self.browser.click(scenebuilder_button_selector)
-            await asyncio.sleep(2)
+            await self._human_delay(1.5, 2.5)
             
             current_url = await self.browser.get_current_url()
             if current_url and "/scenes/" in current_url:
@@ -198,7 +203,7 @@ class VEO3Flow:
             )
             await self.browser.wait_for_selector(settings_button_selector, timeout=5000)
             await self.browser.click(settings_button_selector)
-            await asyncio.sleep(1.5)
+            await self._human_delay(1.2, 1.8)
 
             outputs_button_selector = (
                 'button[type="button"][role="combobox"][aria-controls*="radix"]:has(span:has-text("Outputs per prompt")), '
@@ -208,7 +213,7 @@ class VEO3Flow:
             )
             await self.browser.wait_for_selector(outputs_button_selector, timeout=10000)
             await self.browser.click(outputs_button_selector)
-            await asyncio.sleep(1.5)
+            await self._human_delay(1.2, 1.8)
             
             option_value = str(outputs_per_prompt)
             option_selector = (
@@ -218,7 +223,7 @@ class VEO3Flow:
             )
             await self.browser.wait_for_selector(option_selector, timeout=5000)
             await self.browser.click(option_selector)
-            await asyncio.sleep(1.5)
+            await self._human_delay(1.2, 1.8)
             
             try:
                 await self.browser.evaluate("""
@@ -235,7 +240,7 @@ class VEO3Flow:
                         return true;
                     }
                 """)
-                await asyncio.sleep(0.5)
+                await self._human_delay(0.4, 0.6)
             except:
                 pass
         except Exception as e:
@@ -253,7 +258,7 @@ class VEO3Flow:
             )
             await self.browser.wait_for_selector(settings_button_selector, timeout=5000)
             await self.browser.click(settings_button_selector)
-            await asyncio.sleep(1.5)
+            await self._human_delay(1.2, 1.8)
             
             aspect_ratio_button_selector = (
                 'button[role="combobox"][aria-controls*="radix"]:has-text("Aspect Ratio"), '
@@ -261,7 +266,7 @@ class VEO3Flow:
             )
             await self.browser.wait_for_selector(aspect_ratio_button_selector, timeout=5000)
             await self.browser.click(aspect_ratio_button_selector)
-            await asyncio.sleep(1.5)
+            await self._human_delay(1.2, 1.8)
             
             if is_portrait:
                 option_selector = (
@@ -278,7 +283,7 @@ class VEO3Flow:
             
             await self.browser.wait_for_selector(option_selector, timeout=5000)
             await self.browser.click(option_selector)
-            await asyncio.sleep(1.5)
+            await self._human_delay(1.2, 1.8)
             
             try:
                 await self.browser.evaluate("""
@@ -295,7 +300,7 @@ class VEO3Flow:
                         return true;
                     }
                 """)
-                await asyncio.sleep(0.5)
+                await self._human_delay(0.4, 0.6)
             except:
                 pass
         except Exception as e:
@@ -570,7 +575,7 @@ class VEO3Flow:
             outputs_per_prompt = project_config.get("outputs_per_prompt", 2)
             
             print(f"Đang tìm và download {outputs_per_prompt} video(s) từ blob URL...")
-            await asyncio.sleep(2)
+            await self._human_delay(1.5, 2.5)
             
             video_data = await self.browser.evaluate("""
                 (maxCount) => {
@@ -638,7 +643,7 @@ class VEO3Flow:
                     else:
                         print(f"⚠ Không thể download video {i+1}")
                     
-                    await asyncio.sleep(0.5)
+                    await self._human_delay(0.4, 0.6)
                 except Exception as e:
                     print(f"⚠ Lỗi khi download video {i+1}: {e}")
             
@@ -657,7 +662,7 @@ class VEO3Flow:
         try:
             slider_thumb_selector = 'span[role="slider"][aria-orientation="horizontal"]'
             await self.browser.wait_for_selector(slider_thumb_selector, timeout=60000)
-            await asyncio.sleep(0.5)
+            await self._human_delay(0.4, 0.6)
             
             track_info = await self.browser.evaluate("""
                 () => {
@@ -708,7 +713,7 @@ class VEO3Flow:
                 }
             """)
             
-            await asyncio.sleep(1)
+            await self._human_delay(0.8, 1.2)
             return True
         except Exception as e:
             print(f"Warning: Không thể kéo slider đến cuối: {e}")
@@ -741,7 +746,7 @@ class VEO3Flow:
             """)
             
             if success:
-                await asyncio.sleep(1)
+                await self._human_delay(0.8, 1.2)
                 return True
             
             await self.browser.wait_for_selector('#PINHOLE_ADD_CLIP_CARD_ID', timeout=10000)
@@ -771,7 +776,7 @@ class VEO3Flow:
                 }
             """)
             
-            await asyncio.sleep(1)
+            await self._human_delay(0.8, 1.2)
             return True
         except Exception as e:
             print(f"Warning: Không thể click video: {e}")
@@ -846,7 +851,7 @@ class VEO3Flow:
                 
                 print("[Step 3/4] Click vào video hiện tại...")
                 await self._click_current_video()
-                await asyncio.sleep(1)
+                await self._human_delay(0.8, 1.2)
                 print("[Step 3/4] ✓ Đã click video hiện tại")
             
             print("[Step 4.5/6] Cấu hình số lượng outputs per prompt..." if is_first_video else "[Step 4/6] Cấu hình số lượng outputs per prompt...")
@@ -944,14 +949,16 @@ class VEO3Flow:
                     print(f"⚠ Lỗi khi lưu video vào project: {e}")
                 
                 try:
-                    await self.browser.close_current_tab()
-                    await self.browser.new_tab()
-                    print("✓ Đã đóng tab cũ và mở tab mới")
+                await self.browser.close_current_tab()
+                await self._human_delay(0.5, 1.0)
+                await self.browser.new_tab()
+                await self._human_delay(1.0, 2.0)
+                print("✓ Đã đóng tab cũ và mở tab mới")
                 except Exception as e:
                     print(f"⚠ Lỗi khi đóng/mở tab mới: {e}")
                 
                 print(f"🔄 Đang retry scene {video_index} lần {retry_count + 1}/{max_retries} với tab mới...")
-                await asyncio.sleep(2)
+                await self._human_delay(1.5, 2.5)
                 
                 return await self.generate_video_via_browser(
                     prompt, 

@@ -96,22 +96,60 @@ class BrowserAutomation:
         self.page = None
         self.playwright = None
     
+    async def _human_delay(self, min_seconds: float = 0.3, max_seconds: float = 0.8):
+        import random
+        delay = random.uniform(min_seconds, max_seconds)
+        await asyncio.sleep(delay)
+    
+    async def _human_mouse_move(self, x: int, y: int):
+        if not self.page:
+            return
+        try:
+            current_pos = await self.page.evaluate("""
+                () => {
+                    return {
+                        x: window.mouseX || 0,
+                        y: window.mouseY || 0
+                    };
+                }
+            """)
+            current_x = current_pos.get("x", 0) or 0
+            current_y = current_pos.get("y", 0) or 0
+            
+            import random
+            steps = random.randint(5, 10)
+            for i in range(steps):
+                step_x = current_x + (x - current_x) * (i + 1) / steps
+                step_y = current_y + (y - current_y) * (i + 1) / steps
+                await self.page.mouse.move(step_x, step_y)
+                await asyncio.sleep(random.uniform(0.01, 0.03))
+        except Exception:
+            if self.page:
+                await self.page.mouse.move(x, y)
+    
     async def close_current_tab(self):
+        import random
         if self.page and not self.page.is_closed():
             try:
+                await self._human_delay(0.2, 0.5)
                 await self.page.close()
+                await self._human_delay(0.3, 0.6)
                 logger.info(f"Đã đóng tab hiện tại cho instance: {self.instance_id}")
             except Exception as e:
                 logger.warning(f"Lỗi khi đóng tab: {e}")
         self.page = None
     
     async def new_tab(self):
+        import random
         if not self.context:
             await self.start()
         if not self.context:
             raise RuntimeError("Browser context not available")
+        
+        await self._human_delay(0.4, 0.8)
         self.page = await self.context.new_page()
         self.page.set_default_timeout(self.timeout)
+        await self._human_delay(0.3, 0.6)
         logger.info(f"Đã tạo tab mới cho instance: {self.instance_id}")
         return self.page
     
@@ -121,18 +159,23 @@ class BrowserAutomation:
         if not self.page:
             raise RuntimeError("Browser not started")
         try:
+            await self._human_delay(0.3, 0.7)
             await self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
             await self.page.wait_for_load_state("domcontentloaded", timeout=self.timeout)
+            await self._human_delay(0.5, 1.0)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 logger.warning("Page context destroyed during navigation, restarting browser...")
                 await self.start()
+                await self._human_delay(0.3, 0.7)
                 await self.page.goto(url, wait_until="networkidle", timeout=self.timeout)
                 await self.page.wait_for_load_state("networkidle", timeout=self.timeout)
+                await self._human_delay(0.5, 1.0)
             elif "Timeout" in str(e) or "timeout" in str(e).lower():
                 logger.warning(f"Navigation timeout, trying with load state...")
                 try:
                     await self.page.wait_for_load_state("domcontentloaded", timeout=5000)
+                    await self._human_delay(0.3, 0.6)
                 except Exception:
                     pass
             else:
@@ -152,12 +195,32 @@ class BrowserAutomation:
         if not self.page:
             raise RuntimeError("Browser not started")
         try:
+            element_box = await self.page.evaluate(f"""
+                (selector) => {{
+                    const el = document.querySelector(selector);
+                    if (!el) return null;
+                    const rect = el.getBoundingClientRect();
+                    return {{
+                        x: rect.left + rect.width / 2,
+                        y: rect.top + rect.height / 2,
+                        visible: rect.width > 0 && rect.height > 0
+                    }};
+                }}
+            """, selector)
+            
+            if element_box and element_box.get("visible"):
+                await self._human_mouse_move(element_box["x"], element_box["y"])
+                await self._human_delay(0.2, 0.5)
+            
             await self.page.click(selector)
+            await self._human_delay(0.3, 0.7)
         except Exception as e:
             if "Execution context was destroyed" in str(e) or "Target closed" in str(e):
                 logger.warning("Page context destroyed, restarting browser...")
                 await self.start()
+                await self._human_delay(0.2, 0.4)
                 await self.page.click(selector)
+                await self._human_delay(0.3, 0.7)
             else:
                 raise
     
