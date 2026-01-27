@@ -172,6 +172,12 @@ class VEO3Flow:
             
             await browser.login_to_google()
             await self._human_delay(2.5, 3.5)
+
+            current_url = await browser.get_current_url()
+            # Nếu sau login không ở đúng trang Flow thì điều hướng lại
+            if not current_url or "labs.google/fx" not in current_url:
+                await browser.navigate(self.flow_url)
+                await self._human_delay(1.5, 2.5)
             
             new_project_selector = 'button:has-text("New project")'
             await browser.wait_for_selector(new_project_selector, timeout=10000)
