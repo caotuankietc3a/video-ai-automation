@@ -625,6 +625,62 @@ class BrowserAutomation:
         except Exception as e:
             logger.warning(f"Không thể đặt vị trí cửa sổ trên Mac: {e}")
     
+    async def simulate_human_behavior(self, duration_seconds: int = 30):
+        import random
+        
+        if not self.page:
+            return
+        
+        print(f"Đang mô phỏng hành vi người dùng trong {duration_seconds}s...")
+        elapsed = 0
+        check_interval = 2
+        
+        while elapsed < duration_seconds:
+            try:
+                viewport_size = await self.page.evaluate("""
+                    () => {
+                        return {
+                            width: window.innerWidth,
+                            height: window.innerHeight
+                        };
+                    }
+                """)
+                
+                width = viewport_size.get("width", 1280)
+                height = viewport_size.get("height", 720)
+                
+                action_type = random.randint(0, 2)
+                
+                if action_type == 0:
+                    x = random.randint(100, max(200, width - 100))
+                    y = random.randint(100, max(200, height - 100))
+                    await self.page.mouse.move(x, y)
+                elif action_type == 1:
+                    scroll_amount = random.randint(-100, 100)
+                    await self.page.evaluate(f"""
+                        () => {{
+                            window.scrollBy(0, {scroll_amount});
+                        }}
+                    """)
+                else:
+                    x = random.randint(100, max(200, width - 100))
+                    y = random.randint(100, max(200, height - 100))
+                    await self.page.mouse.move(x, y)
+                
+                delay = random.uniform(1.5, 3.0)
+                await asyncio.sleep(delay)
+                elapsed += delay
+                
+                if int(elapsed) % 5 < check_interval and int(elapsed) > 0:
+                    print(f"  Đã mô phỏng {int(elapsed)}/{duration_seconds}s...")
+                    
+            except Exception as e:
+                logger.warning(f"Lỗi khi mô phỏng hành vi người dùng: {e}")
+                await asyncio.sleep(check_interval)
+                elapsed += check_interval
+        
+        print(f"✓ Đã hoàn thành mô phỏng hành vi người dùng ({duration_seconds}s)")
+    
     async def select_fast_mode(self) -> None:
         """
         Chọn Fast mode trong Gemini sau khi đã đăng nhập.

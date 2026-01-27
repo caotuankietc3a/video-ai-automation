@@ -302,10 +302,59 @@ class VEO3Flow:
             print(f"Warning: Không thể set aspect ratio: {e}, tiếp tục với settings mặc định")
     
     async def _fill_prompt_and_generate(self, prompt: str):
+        import random
+        
         prompt_input_selector = 'textarea#PINHOLE_TEXT_AREA_ELEMENT_ID, textarea[placeholder*="Generate a video"]'
         await self.browser.wait_for_selector(prompt_input_selector, timeout=60000)
-        await self.browser.fill(prompt_input_selector, prompt)
-        await asyncio.sleep(1)
+        
+        element_box = await self.browser.evaluate("""
+            () => {
+                const el = document.querySelector('textarea#PINHOLE_TEXT_AREA_ELEMENT_ID')
+                    || document.querySelector('textarea[placeholder*="Generate a video"]');
+                if (!el) return null;
+                const rect = el.getBoundingClientRect();
+                return {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top + rect.height / 2
+                };
+            }
+        """)
+        
+        if element_box and self.browser.page:
+            await self.browser.page.mouse.move(element_box["x"], element_box["y"])
+            await asyncio.sleep(random.uniform(0.3, 0.7))
+            await self.browser.page.mouse.click(element_box["x"], element_box["y"])
+            await asyncio.sleep(random.uniform(0.2, 0.5))
+        
+        await self.browser.evaluate("""
+            () => {
+                const el = document.querySelector('textarea#PINHOLE_TEXT_AREA_ELEMENT_ID')
+                    || document.querySelector('textarea[placeholder*="Generate a video"]');
+                if (el) {
+                    el.focus();
+                    el.value = '';
+                }
+            }
+        """)
+        await asyncio.sleep(random.uniform(0.2, 0.4))
+        
+        chunk_size = random.randint(15, 25)
+        for i in range(0, len(prompt), chunk_size):
+            chunk = prompt[i:i+chunk_size]
+            await self.browser.evaluate(f"""
+                (text) => {{
+                    const el = document.querySelector('textarea#PINHOLE_TEXT_AREA_ELEMENT_ID')
+                        || document.querySelector('textarea[placeholder*="Generate a video"]');
+                    if (el) {{
+                        el.value += text;
+                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    }}
+                }}
+            """, chunk)
+            delay = random.uniform(0.05, 0.15)
+            await asyncio.sleep(delay)
+        
+        await asyncio.sleep(random.uniform(0.5, 1.0))
 
         max_retries = 10
         for _ in range(max_retries):
@@ -316,17 +365,34 @@ class VEO3Flow:
                     return el ? (el.value || '').trim() : '';
                 }
             """)
-            if value and len(value) >= 1:
+            if value and len(value) >= len(prompt) * 0.9:
                 break
             await self.browser.fill(prompt_input_selector, prompt)
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(random.uniform(0.3, 0.7))
         else:
             raise RuntimeError("Textarea prompt không có nội dung, không thể tiếp tục Generate")
 
         generate_button_selector = 'button:has-text("Generate"), button:has-text("Create"), button[type="submit"]'
         await self.browser.wait_for_selector(generate_button_selector, timeout=60000)
+        
+        button_box = await self.browser.evaluate("""
+            (selector) => {
+                const el = document.querySelector(selector);
+                if (!el) return null;
+                const rect = el.getBoundingClientRect();
+                return {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top + rect.height / 2
+                };
+            }
+        """, generate_button_selector)
+        
+        if button_box and self.browser.page:
+            await self.browser.page.mouse.move(button_box["x"], button_box["y"])
+            await asyncio.sleep(random.uniform(0.3, 0.7))
+        
         await self.browser.click(generate_button_selector)
-        await asyncio.sleep(5)
+        await asyncio.sleep(random.uniform(2, 4))
     
     def _parse_time_to_seconds(self, time_str: str) -> Optional[int]:
         try:
@@ -786,6 +852,10 @@ class VEO3Flow:
             print("[Step 4.5/6] Cấu hình số lượng outputs per prompt..." if is_first_video else "[Step 4/6] Cấu hình số lượng outputs per prompt...")
             await self._configure_outputs_per_prompt(project_config)
             print("[Step 4.5/6] ✓ Đã cấu hình outputs per prompt" if is_first_video else "[Step 4/6] ✓ Đã cấu hình outputs per prompt")
+
+            print("[Step 4.6/6] Đang chờ scenebuilder load và mô phỏng hành vi người dùng (30s)...")
+            await self.browser.simulate_human_behavior(duration_seconds=30)
+            print("[Step 4.6/6] ✓ Đã hoàn thành mô phỏng hành vi người dùng")
 
             print("[Step 5/6] Điền prompt và tạo video..." if is_first_video else "[Step 5/6] Điền prompt và tạo video...")
             await self._fill_prompt_and_generate(prompt)
