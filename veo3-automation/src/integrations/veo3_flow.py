@@ -372,23 +372,9 @@ class VEO3Flow:
             }
         """)
         await asyncio.sleep(random.uniform(0.2, 0.4))
-        
-        chunk_size = random.randint(15, 25)
-        for i in range(0, len(prompt), chunk_size):
-            chunk = prompt[i:i+chunk_size]
-            await self.browser.evaluate(f"""
-                (text) => {{
-                    const el = document.querySelector('textarea#PINHOLE_TEXT_AREA_ELEMENT_ID')
-                        || document.querySelector('textarea[placeholder*="Generate a video"]');
-                    if (el) {{
-                        el.value += text;
-                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    }}
-                }}
-            """, chunk)
-            delay = random.uniform(0.05, 0.15)
-            await asyncio.sleep(delay)
-        
+
+        # Điền toàn bộ prompt vào textarea một lần
+        await self.browser.fill(prompt_input_selector, prompt)
         await asyncio.sleep(random.uniform(0.5, 1.0))
 
         max_retries = 10
