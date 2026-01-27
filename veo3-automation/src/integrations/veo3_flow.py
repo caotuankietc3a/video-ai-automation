@@ -80,6 +80,11 @@ class VEO3Flow:
                 await self._human_delay(2.5, 3.5)
                 await self.browser.login_to_google()
                 await self._human_delay(1.5, 2.5)
+                # Nếu sau login không ở đúng trang Flow hoặc gặp lỗi OAuthCallback thì điều hướng lại
+                if (not current_url or "labs.google/fx" not in current_url
+                        or "labs.google/fx/api/auth/signin" in current_url):
+                    await self.browser.navigate(project_link)
+                    await self._human_delay(1.5, 2.5)
                 current_url = await self.browser.get_current_url()
 
             expected_project_id = self._extract_project_id(project_link)
@@ -101,6 +106,12 @@ class VEO3Flow:
                 await self._human_delay(2.5, 3.5)
                 await self.browser.login_to_google()
                 await self._human_delay(1.5, 2.5)
+
+                # Nếu sau login không ở đúng trang Flow hoặc gặp lỗi OAuthCallback thì điều hướng lại
+                if (not current_url or "labs.google/fx" not in current_url
+                        or "labs.google/fx/api/auth/signin" in current_url):
+                    await self.browser.navigate(project_link)
+                    await self._human_delay(1.5, 2.5)
                 
                 current_url = await self.browser.get_current_url()
                 if current_url and "/project/" in current_url:
@@ -143,8 +154,13 @@ class VEO3Flow:
             await self._human_delay(2.5, 3.5)
             await browser.login_to_google()
             await self._human_delay(1.5, 2.5)
-            
+
             current_url = await browser.get_current_url()
+            # Nếu sau login bị redirect sang trang lỗi OAuthCallback thì quay lại Flow
+            if current_url and "labs.google/fx/api/auth/signin" in current_url:
+                await browser.navigate(self.flow_url)
+                await self._human_delay(1.5, 2.5)
+                current_url = await browser.get_current_url()
             if current_url and "/project/" in current_url:
                 if "/scenes/" not in current_url and "/scenes/" not in project_link:
                     updated_link = await self._click_scenebuilder()
@@ -174,9 +190,15 @@ class VEO3Flow:
             await self._human_delay(2.5, 3.5)
 
             current_url = await browser.get_current_url()
-            # Nếu sau login không ở đúng trang Flow thì điều hướng lại
-            if not current_url or "labs.google/fx" not in current_url:
+            # Nếu sau login không ở đúng trang Flow hoặc gặp lỗi OAuthCallback thì điều hướng lại
+            if (not current_url or "labs.google/fx" not in current_url
+                    or "labs.google/fx/api/auth/signin" in current_url):
                 await browser.navigate(self.flow_url)
+                await self._human_delay(1.5, 2.5)
+
+                create_with_flow_selector = 'button:has-text("Create with Flow")'
+                await browser.wait_for_selector(create_with_flow_selector, timeout=60000)
+                await browser.click(create_with_flow_selector)
                 await self._human_delay(1.5, 2.5)
             
             new_project_selector = 'button:has-text("New project")'
@@ -395,23 +417,6 @@ class VEO3Flow:
 
         generate_button_selector = 'button:has-text("Generate"), button:has-text("Create"), button[type="submit"]'
         await self.browser.wait_for_selector(generate_button_selector, timeout=60000)
-        
-        button_box = await self.browser.evaluate("""
-            (selector) => {
-                const el = document.querySelector(selector);
-                if (!el) return null;
-                const rect = el.getBoundingClientRect();
-                return {
-                    x: rect.left + rect.width / 2,
-                    y: rect.top + rect.height / 2
-                };
-            }
-        """, generate_button_selector)
-        
-        if button_box and self.browser.page:
-            await self.browser.page.mouse.move(button_box["x"], button_box["y"])
-            await asyncio.sleep(random.uniform(0.3, 0.7))
-        
         await self.browser.click(generate_button_selector)
         await asyncio.sleep(random.uniform(2, 4))
     
