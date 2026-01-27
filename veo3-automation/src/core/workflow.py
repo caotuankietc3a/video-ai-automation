@@ -46,6 +46,15 @@ class Workflow:
             self.veo3_flow = VEO3Flow(browser=self._get_browser())
         return self.veo3_flow
     
+    async def _close_and_new_tab(self):
+        try:
+            if self.browser:
+                await self.browser.close_current_tab()
+                await self.browser.new_tab()
+                self.logger.info("Đã đóng tab cũ và mở tab mới sau step")
+        except Exception as e:
+            self.logger.warning(f"Lỗi khi đóng/mở tab mới: {e}")
+    
     def set_progress_callback(self, callback: Callable[[str, float], None]):
         self.progress_callback = callback
     
@@ -97,10 +106,11 @@ class Workflow:
                     
                     try:
                         if self.browser:
-                            await self.browser.stop()
-                            self.browser = None
-                    except Exception:
-                        pass
+                            await self.browser.close_current_tab()
+                            await self.browser.new_tab()
+                            self.logger.info(f"[{step_name}] Đã đóng tab cũ và mở tab mới để retry")
+                    except Exception as e:
+                        self.logger.warning(f"[{step_name}] Lỗi khi đóng/mở tab mới: {e}")
                 else:
                     self.logger.error(f"[{step_name}] Đã thử {max_retries} lần, vẫn thất bại")
         
@@ -239,6 +249,8 @@ class Workflow:
                         project["script"] = video_analysis
                         project_manager.save_project(project)
                     
+                    await self._close_and_new_tab()
+                    
                     self._update_workflow_step(project_file, "content")
                     current_step = "content"
             else:
@@ -273,6 +285,8 @@ class Workflow:
                     project["script"] = content.get("full_content", "") if content else ""
                     project_manager.save_project(project)
                 
+                await self._close_and_new_tab()
+                
                 self._update_workflow_step(project_file, "characters")
                 current_step = "characters"
             else:
@@ -306,6 +320,8 @@ class Workflow:
                 if project:
                     project["characters"] = characters
                     project_manager.save_project(project)
+                
+                await self._close_and_new_tab()
                 
                 self._update_workflow_step(project_file, "scenes")
                 current_step = "scenes"
@@ -345,6 +361,8 @@ class Workflow:
                     project["scenes"] = scenes
                     project_manager.save_project(project)
                 
+                await self._close_and_new_tab()
+                
                 self._update_workflow_step(project_file, "prompts")
                 current_step = "prompts"
             else:
@@ -378,6 +396,8 @@ class Workflow:
                 if project:
                     project["prompts"] = veo3_prompts
                     project_manager.save_project(project)
+                
+                await self._close_and_new_tab()
                 
                 self._update_workflow_step(project_file, "videos")
                 current_step = "videos"
@@ -453,12 +473,11 @@ class Workflow:
             self.logger.info(f"Workflow finally block - current step: {final_step}, is_running: {self.is_running}")
             if final_step == "complete" and not self.is_running:
                 try:
-                    self.logger.info(f"Workflow đã hoàn thành, đang stop browser instance: {self.browser_instance_id}")
-                    await stop_browser_instance(self.browser_instance_id)
-                    self.browser = None
-                    self.logger.info("Đã stop browser sau khi workflow hoàn thành")
+                    self.logger.info(f"Workflow đã hoàn thành, đang close tab cho browser instance: {self.browser_instance_id}")
+                    await stop_browser_instance(self.browser_instance_id, close_tab_only=True)
+                    self.logger.info("Đã close tab sau khi workflow hoàn thành")
                 except Exception as e:
-                    self.logger.warning(f"Lỗi khi stop browser: {e}")
+                    self.logger.warning(f"Lỗi khi close tab: {e}")
             else:
                 if final_step != "complete":
                     self.logger.warning(f"Workflow chưa hoàn thành (step: {final_step}), KHÔNG stop browser để có thể resume sau")
@@ -655,8 +674,10 @@ class Workflow:
         finally:
             self.is_running = False
             try:
-                await stop_browser_instance(self.browser_instance_id)
-                self.browser = None
-            except Exception:
-                pass
+                if self.browser:
+                    await self.browser.close_current_tab()
+                    await self.browser.new_tab()
+                    self.logger.info("Đã đóng tab và mở tab mới sau khi generate videos")
+            except Exception as e:
+                self.logger.warning(f"Lỗi khi đóng/mở tab mới: {e}")
 

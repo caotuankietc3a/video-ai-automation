@@ -19,6 +19,23 @@ class RunTab(ctk.CTkFrame):
         self.video_paths = []
         self.logger = None
         self.manual_video_analysis: str | None = None
+    
+    def _close_browser_tab(self, loop):
+        try:
+            if self.workflow and self.workflow.browser:
+                loop.run_until_complete(self.workflow.browser.close_current_tab())
+                loop.run_until_complete(self.workflow.browser.new_tab())
+                if self.logger:
+                    self.logger.info("✓ Đã đóng tab cũ và mở tab mới")
+            else:
+                from ..integrations.browser_automation import browser_automation
+                loop.run_until_complete(browser_automation.close_current_tab())
+                loop.run_until_complete(browser_automation.new_tab())
+                if self.logger:
+                    self.logger.info("✓ Đã đóng tab cũ và mở tab mới")
+        except Exception as e:
+            if self.logger:
+                self.logger.warning(f"Lỗi khi đóng/mở tab mới: {e}")
         
         self.project_panel = ProjectPanel(
             self, 
@@ -564,12 +581,7 @@ class RunTab(ctk.CTkFrame):
                     )
                     self.logger.info("✓ Hoàn thành phân tích video")
                     
-                    from ..integrations.browser_automation import browser_automation
-                    try:
-                        loop.run_until_complete(browser_automation.stop())
-                        self.logger.info("✓ Đã tắt browser automation sau phân tích video")
-                    except Exception:
-                        pass
+                    self._close_browser_tab(loop)
                 
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 
@@ -585,12 +597,7 @@ class RunTab(ctk.CTkFrame):
                     )
                     self.logger.info("✓ Hoàn thành tạo nội dung")
                     
-                    from ..integrations.browser_automation import browser_automation
-                    try:
-                        loop.run_until_complete(browser_automation.stop())
-                        self.logger.info("✓ Đã tắt browser automation sau tạo nội dung")
-                    except Exception:
-                        pass
+                    self._close_browser_tab(loop)
                 
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
@@ -641,12 +648,7 @@ class RunTab(ctk.CTkFrame):
                     scenes = new_scenes
                     self.logger.info("✓ Hoàn thành tạo phân cảnh")
                     
-                    from ..integrations.browser_automation import browser_automation
-                    try:
-                        loop.run_until_complete(browser_automation.stop())
-                        self.logger.info("✓ Đã tắt browser automation sau tạo phân cảnh")
-                    except Exception:
-                        pass
+                    self._close_browser_tab(loop)
                 
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
@@ -716,12 +718,7 @@ class RunTab(ctk.CTkFrame):
                         videos = new_videos
                     self.logger.info(f"✓ Hoàn thành tạo video VEO3 ({len(videos)}/{expected_videos_count})")
                     
-                    from ..integrations.browser_automation import browser_automation
-                    try:
-                        loop.run_until_complete(browser_automation.stop())
-                        self.logger.info("✓ Đã tắt browser automation sau tạo video VEO3")
-                    except Exception:
-                        pass
+                    self._close_browser_tab(loop)
                 
                 gemini_link = project_config.get("gemini_project_link", "")
                 flow_link = project_config.get("project_link", "")
@@ -741,10 +738,8 @@ class RunTab(ctk.CTkFrame):
                 self.after(0, lambda: self.result_panel.update_logs(self.logger.get_logs()))
                 self.after(0, lambda msg=error_msg: messagebox.showerror("Lỗi", f"Chạy tất cả các bước thất bại: {msg}"))
             finally:
-                from ..integrations.browser_automation import browser_automation
                 try:
-                    loop.run_until_complete(browser_automation.stop())
-                    self.logger.info("✓ Đã tắt browser automation trong finally block")
+                    self._close_browser_tab(loop)
                 except Exception:
                     pass
                 self.after(0, lambda: self.project_panel.set_workflow_running(False))

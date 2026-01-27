@@ -96,6 +96,25 @@ class BrowserAutomation:
         self.page = None
         self.playwright = None
     
+    async def close_current_tab(self):
+        if self.page and not self.page.is_closed():
+            try:
+                await self.page.close()
+                logger.info(f"Đã đóng tab hiện tại cho instance: {self.instance_id}")
+            except Exception as e:
+                logger.warning(f"Lỗi khi đóng tab: {e}")
+        self.page = None
+    
+    async def new_tab(self):
+        if not self.context:
+            await self.start()
+        if not self.context:
+            raise RuntimeError("Browser context not available")
+        self.page = await self.context.new_page()
+        self.page.set_default_timeout(self.timeout)
+        logger.info(f"Đã tạo tab mới cho instance: {self.instance_id}")
+        return self.page
+    
     async def navigate(self, url: str):
         if not self._is_page_valid():
             await self.start()
@@ -664,10 +683,20 @@ def get_browser_instance(instance_id: str) -> BrowserAutomation:
     return _browser_instances[instance_id]
 
 
-async def stop_browser_instance(instance_id: str) -> None:
+async def stop_browser_instance(instance_id: str, close_tab_only: bool = True) -> None:
     if instance_id in _browser_instances:
-        await _browser_instances[instance_id].stop()
-        del _browser_instances[instance_id]
+        browser = _browser_instances[instance_id]
+        if close_tab_only:
+            try:
+                await browser.close_current_tab()
+                await browser.new_tab()
+                logger.info(f"Đã đóng tab và mở tab mới cho instance: {instance_id}")
+            except Exception as e:
+                logger.warning(f"Lỗi khi đóng/mở tab cho instance {instance_id}: {e}")
+        else:
+            await browser.stop()
+            del _browser_instances[instance_id]
+            logger.info(f"Đã stop browser instance: {instance_id}")
 
 
 async def stop_all_browser_instances() -> None:

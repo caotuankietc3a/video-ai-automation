@@ -874,13 +874,13 @@ class VEO3Flow:
                     print(f"⚠ Lỗi khi lưu video vào project: {e}")
                 
                 try:
-                    await self.browser.stop()
-                    print("✓ Đã đóng browser")
+                    await self.browser.close_current_tab()
+                    await self.browser.new_tab()
+                    print("✓ Đã đóng tab cũ và mở tab mới")
                 except Exception as e:
-                    print(f"⚠ Lỗi khi đóng browser: {e}")
+                    print(f"⚠ Lỗi khi đóng/mở tab mới: {e}")
                 
-                print(f"🔄 Đang retry scene {video_index} lần {retry_count + 1}/{max_retries} với browser mới (clear cookies)...")
-                project_config["clear_cookies_on_retry"] = True
+                print(f"🔄 Đang retry scene {video_index} lần {retry_count + 1}/{max_retries} với tab mới...")
                 await asyncio.sleep(2)
                 
                 return await self.generate_video_via_browser(
