@@ -39,17 +39,9 @@ class RunTab(ctk.CTkFrame):
     
     def _close_browser_tab(self, loop):
         try:
-            if self.workflow and self.workflow.browser:
-                loop.run_until_complete(self.workflow.browser.close_current_tab())
-                loop.run_until_complete(self.workflow.browser.new_tab())
-                if self.logger:
-                    self.logger.info("✓ Đã đóng tab cũ và mở tab mới")
-            else:
-                from ..integrations.browser_automation import browser_automation
-                loop.run_until_complete(browser_automation.close_current_tab())
-                loop.run_until_complete(browser_automation.new_tab())
-                if self.logger:
-                    self.logger.info("✓ Đã đóng tab cũ và mở tab mới")
+            # Không đóng/mở tab nữa, chỉ giữ nguyên một tab duy nhất.
+            if self.logger:
+                self.logger.info("Bỏ qua đóng/mở tab, giữ nguyên tab hiện tại")
         except Exception as e:
             if self.logger:
                 self.logger.warning(f"Lỗi khi đóng/mở tab mới: {e}")

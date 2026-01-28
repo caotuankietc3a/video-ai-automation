@@ -973,13 +973,13 @@ class VEO3Flow:
                     print(f"⚠ Lỗi khi lưu video vào project: {e}")
                 
                 try:
-                    await self.browser.close_current_tab()
-                    await self._human_delay(0.5, 1.0)
-                    await self.browser.new_tab()
-                    await self._human_delay(1.0, 2.0)
-                    print("✓ Đã đóng tab cũ và mở tab mới")
+                    current_url = await self.browser.get_current_url()
+                    if current_url:
+                        print("Đang reload lại tab hiện tại trước khi retry...")
+                        await self.browser.navigate(current_url)
+                        await self._human_delay(1.0, 2.0)
                 except Exception as e:
-                    print(f"⚠ Lỗi khi đóng/mở tab mới: {e}")
+                    print(f"⚠ Lỗi khi reload tab trước khi retry: {e}")
                 
                 print(f"🔄 Đang retry scene {video_index} lần {retry_count + 1}/{max_retries} với tab mới...")
                 await self._human_delay(1.5, 2.5)

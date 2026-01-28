@@ -47,14 +47,19 @@ class Workflow:
             self.veo3_flow = VEO3Flow(browser=self._get_browser())
         return self.veo3_flow
     
-    async def _close_and_new_tab(self):
+    async def _reload_tab(self):
+        """
+        Chỉ reload lại tab hiện tại, KHÔNG đóng/mở tab mới.
+        """
         try:
-            if self.browser:
-                await self.browser.close_current_tab()
-                await self.browser.new_tab()
-                self.logger.info("Đã đóng tab cũ và mở tab mới sau step")
+            if not self.browser:
+                return
+            current_url = await self.browser.get_current_url()
+            if current_url:
+                await self.browser.navigate(current_url)
+                self.logger.info("Đã reload lại tab hiện tại sau step")
         except Exception as e:
-            self.logger.warning(f"Lỗi khi đóng/mở tab mới: {e}")
+            self.logger.warning(f"Lỗi khi reload tab hiện tại: {e}")
 
     async def _wait_for_recaptcha_at_workflow_start(self, project_config: Dict[str, Any]) -> None:
         if self._recaptcha_wait_done:
@@ -128,12 +133,9 @@ class Workflow:
                     await asyncio.sleep(delay_seconds)
                     
                     try:
-                        if self.browser:
-                            await self.browser.close_current_tab()
-                            await self.browser.new_tab()
-                            self.logger.info(f"[{step_name}] Đã đóng tab cũ và mở tab mới để retry")
+                        await self._reload_tab()
                     except Exception as e:
-                        self.logger.warning(f"[{step_name}] Lỗi khi đóng/mở tab mới: {e}")
+                        self.logger.warning(f"[{step_name}] Lỗi khi reload tab để retry: {e}")
                 else:
                     self.logger.error(f"[{step_name}] Đã thử {max_retries} lần, vẫn thất bại")
         
@@ -269,14 +271,14 @@ class Workflow:
                         project_manager.save_project(project)
                         self.logger.info(f"Đã lưu Gemini link vào project: {gemini_link}")
                     
-                    if project:
-                        project["script"] = video_analysis
-                        project_manager.save_project(project)
-                    
-                    await self._close_and_new_tab()
-                    
-                    self._update_workflow_step(project_file, "content")
-                    current_step = "content"
+                if project:
+                    project["script"] = video_analysis
+                    project_manager.save_project(project)
+                
+                await self._reload_tab()
+                
+                self._update_workflow_step(project_file, "content")
+                current_step = "content"
             else:
                 if project and project.get("script"):
                     video_analysis = project.get("script")
@@ -309,7 +311,7 @@ class Workflow:
                     project["script"] = content.get("full_content", "") if content else ""
                     project_manager.save_project(project)
                 
-                await self._close_and_new_tab()
+                await self._reload_tab()
                 
                 self._update_workflow_step(project_file, "characters")
                 current_step = "characters"
@@ -345,7 +347,7 @@ class Workflow:
                     project["characters"] = characters
                     project_manager.save_project(project)
                 
-                await self._close_and_new_tab()
+                await self._reload_tab()
                 
                 self._update_workflow_step(project_file, "scenes")
                 current_step = "scenes"
@@ -385,7 +387,7 @@ class Workflow:
                     project["scenes"] = scenes
                     project_manager.save_project(project)
                 
-                await self._close_and_new_tab()
+                await self._reload_tab()
                 
                 self._update_workflow_step(project_file, "prompts")
                 current_step = "prompts"
@@ -421,7 +423,7 @@ class Workflow:
                     project["prompts"] = veo3_prompts
                     project_manager.save_project(project)
                 
-                await self._close_and_new_tab()
+                await self._reload_tab()
                 
                 self._update_workflow_step(project_file, "videos")
                 current_step = "videos"
@@ -697,11 +699,4 @@ class Workflow:
             return video_results
         finally:
             self.is_running = False
-            try:
-                if self.browser:
-                    await self.browser.close_current_tab()
-                    await self.browser.new_tab()
-                    self.logger.info("Đã đóng tab và mở tab mới sau khi generate videos")
-            except Exception as e:
-                self.logger.warning(f"Lỗi khi đóng/mở tab mới: {e}")
 

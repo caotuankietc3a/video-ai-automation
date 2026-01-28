@@ -841,11 +841,10 @@ async def stop_browser_instance(instance_id: str, close_tab_only: bool = True) -
         browser = _browser_instances[instance_id]
         if close_tab_only:
             try:
-                await browser.close_current_tab()
-                await browser.new_tab()
-                logger.info(f"Đã đóng tab và mở tab mới cho instance: {instance_id}")
+                # Chỉ dừng sử dụng instance trong registry, KHÔNG đóng/mở tab hay browser.
+                logger.info(f"Đánh dấu stop browser instance (close_tab_only) cho instance: {instance_id}")
             except Exception as e:
-                logger.warning(f"Lỗi khi đóng/mở tab cho instance {instance_id}: {e}")
+                logger.warning(f"Lỗi khi stop browser instance (close_tab_only) cho {instance_id}: {e}")
         else:
             await browser.stop()
             del _browser_instances[instance_id]
