@@ -19,7 +19,7 @@ class VEO3Flow:
         await asyncio.sleep(delay)
 
     async def _wait_for_recaptcha_if_needed(self, project_config: Dict[str, Any]) -> None:
-        skip_prompt = project_config.get("recaptcha_skip_prompt", True)
+        skip_prompt = project_config.get("recaptcha_skip_prompt", False)
         if skip_prompt:
             return
         loop = asyncio.get_event_loop()
