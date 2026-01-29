@@ -19,21 +19,28 @@ class VEO3Flow:
         await asyncio.sleep(delay)
 
     async def _wait_for_recaptcha_if_needed(self, project_config: Dict[str, Any]) -> None:
-        skip_prompt = project_config.get("recaptcha_skip_prompt", False)
-        if skip_prompt:
+        """
+        Chờ user xử lý recaptcha (nếu có) sau khi browser vừa start / login.
+        Thời gian chờ có thể cấu hình qua project_config['recaptcha_wait_seconds'], mặc định 60s.
+        """
+        try:
+            wait_seconds = int(project_config.get("recaptcha_wait_seconds", 90))
+        except Exception:
+            wait_seconds = 90
+
+        if wait_seconds <= 0:
             return
-        loop = asyncio.get_event_loop()
-        while True:
-            answer = await loop.run_in_executor(
-                None,
-                lambda: input("[Recaptcha] Đã xử lý xong reCAPTCHA / xác minh bảo mật? (yes/no): ").strip().lower()
-            )
-            if answer == "yes":
-                return
-            if answer == "no":
-                print("[Recaptcha] Chưa xong. Xử lý reCAPTCHA trong browser rồi nhập 'yes' để tiếp tục.")
-                continue
-            print("[Recaptcha] Chỉ chấp nhận 'yes' hoặc 'no'. Thử lại.")
+
+        print(f"[Recaptcha] Đang tạm dừng {wait_seconds}s để bạn xử lý reCAPTCHA / xác minh bảo mật trong browser (nếu xuất hiện)...")
+        elapsed = 0
+        step = 5
+        while elapsed < wait_seconds:
+            remaining = wait_seconds - elapsed
+            print(f"[Recaptcha] Còn khoảng {remaining}s... (có thể điều chỉnh trong 'recaptcha_wait_seconds')")
+            sleep_time = step if remaining > step else remaining
+            await asyncio.sleep(sleep_time)
+            elapsed += sleep_time
+        print("[Recaptcha] Hết thời gian chờ, tiếp tục workflow.")
     
     def _extract_project_id(self, url: str) -> Optional[str]:
         if not url or "/project/" not in url:
