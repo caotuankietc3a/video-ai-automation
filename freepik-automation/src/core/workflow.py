@@ -192,8 +192,30 @@ class FreepikWorkflow:
                 "kol_image": (p or {}).get("kol_image"),
             }
 
-        step_index = 0
-        for step_id in self._steps_order:
+        try:
+            start_index = self._steps_order.index(current)
+        except ValueError:
+            start_index = 0
+
+        if current in (STEP_BUILD_PROMPT, STEP_SAVE_OUTPUTS):
+            try:
+                start_index = self._steps_order.index(STEP_GEMINI_ANALYZE)
+            except ValueError:
+                pass
+
+        if start_index > 0:
+            proj = project_manager.load_project(self.project_file or "")
+            if proj:
+                saved_prompt = proj.get("kling_prompt")
+                saved_data = proj.get("kling_data")
+                if saved_prompt is not None:
+                    result_prompt = saved_prompt
+                if saved_data is not None:
+                    kling_data_dict = saved_data
+
+        for step_index, step_id in enumerate(self._steps_order):
+            if step_index < start_index:
+                continue
             if not self._step_enabled(step_id):
                 continue
             if step_id == STEP_KOL_IMAGE:
