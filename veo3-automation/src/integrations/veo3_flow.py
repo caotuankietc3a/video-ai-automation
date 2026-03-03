@@ -2,7 +2,6 @@ import asyncio
 from typing import List, Dict, Any, Optional, Callable, TYPE_CHECKING
 from .browser_automation import browser_automation, BrowserAutomation
 from .gemini_client import GeminiClient
-from ..data.config_manager import config_manager
 
 if TYPE_CHECKING:
     from .browser_automation import BrowserAutomation
@@ -808,7 +807,7 @@ class VEO3Flow:
             if is_first_video:
                 print("[Step 1/6] Khởi động browser...")
                 clear_cookies = project_config.get("clear_cookies_on_retry", False)
-                await self.browser.start(clear_cookies=clear_cookies)
+                await self.browser.start(clear_cookies=clear_cookies, runtime_config=project_config)
                 if clear_cookies:
                     project_config["clear_cookies_on_retry"] = False
                     print("[Step 1/6] ✓ Browser đã khởi động với cookies đã được clear")

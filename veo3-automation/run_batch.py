@@ -84,7 +84,21 @@ Chế độ Multiprocessing:
         default=None,
         help="Số lượng process chạy song song (override config file)"
     )
-    
+
+    parser.add_argument(
+        "--chrome-user-data-dir",
+        type=str,
+        default=None,
+        help="Đường dẫn Chrome user data dir để chạy theo profile"
+    )
+
+    parser.add_argument(
+        "--chrome-profile-directory",
+        type=str,
+        default=None,
+        help="Tên profile directory (ví dụ: Default, Profile 1)"
+    )
+
     parser.add_argument(
         "--dry-run", "-d",
         action="store_true",
@@ -110,7 +124,17 @@ Chế độ Multiprocessing:
     
     if args.max_concurrent is not None:
         config_data["max_concurrent"] = args.max_concurrent
-    
+
+    if args.chrome_user_data_dir is not None:
+        config_data.setdefault("chrome_profile", {})
+        config_data["chrome_profile"]["enabled"] = True
+        config_data["chrome_profile"]["user_data_dir"] = args.chrome_user_data_dir
+
+    if args.chrome_profile_directory is not None:
+        config_data.setdefault("chrome_profile", {})
+        config_data["chrome_profile"]["enabled"] = True
+        config_data["chrome_profile"]["profile_directory"] = args.chrome_profile_directory
+
     batch_config = BatchConfig.from_dict(config_data)
     
     num_processes = min(batch_config.max_concurrent, len(batch_config.videos))
@@ -122,7 +146,18 @@ Chế độ Multiprocessing:
     print(f"🎨 Default style: {batch_config.default_style}")
     print(f"⏱️  Default duration: {batch_config.default_duration}s")
     print(f"📐 Default aspect ratio: {batch_config.default_aspect_ratio}")
+    if batch_config.chrome_profile_enabled:
+        print(f"👤 Chrome profile: BẬT ({batch_config.chrome_user_data_dir})")
+        if batch_config.chrome_profile_directory:
+            print(f"📂 Chrome profile directory: {batch_config.chrome_profile_directory}")
+    else:
+        print("👤 Chrome profile: TẮT")
     print("=" * 60)
+
+    if batch_config.chrome_profile_enabled and batch_config.max_concurrent > 1:
+        print("⚠️ Đang bật Chrome profile, ép max_concurrent = 1 để tránh lock profile")
+        batch_config.max_concurrent = 1
+        num_processes = 1
     
     if len(batch_config.videos) == 0:
         print("⚠️ Không có video nào trong config!")

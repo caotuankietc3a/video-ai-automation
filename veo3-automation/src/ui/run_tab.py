@@ -216,11 +216,13 @@ class RunTab(ctk.CTkFrame):
             asyncio.set_event_loop(loop)
             try:
                 messagebox.showinfo("Thông báo", "Đang phân tích video...")
-                video_analysis, gemini_link = loop.run_until_complete(video_analyzer.analyze_videos(self.video_paths))
+                project_config = self.project_panel.get_project_config()
+                video_analysis, gemini_link = loop.run_until_complete(
+                    video_analyzer.analyze_videos(self.video_paths, project_config=project_config)
+                )
                 self.manual_video_analysis = video_analysis
-                
+
                 if gemini_link:
-                    project_config = self.project_panel.get_project_config()
                     project = project_manager.load_project(project_config.get("file", ""))
                     if project:
                         project["gemini_video_analysis_link"] = gemini_link

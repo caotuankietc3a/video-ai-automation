@@ -8,7 +8,6 @@ from .veo3_prompt_generator import VEO3PromptGenerator
 from ..integrations.veo3_flow import VEO3Flow
 from ..integrations.browser_automation import get_browser_instance, stop_browser_instance, BrowserAutomation
 from ..data.project_manager import project_manager
-from ..data.video_manager import video_manager
 from ..utils.logger import Logger
 
 T = TypeVar('T')
@@ -72,7 +71,7 @@ class Workflow:
 
         try:
             # đảm bảo browser đã start để user thấy UI (nếu cần giải captcha)
-            await self._get_browser().start()
+            await self._get_browser().start(runtime_config=project_config)
         except Exception:
             pass
 
@@ -255,7 +254,10 @@ class Workflow:
                     
                     async def _analyze_video():
                         return await self.video_analyzer.analyze_videos(
-                            video_paths, self.project_name, browser=self._get_browser()
+                            video_paths,
+                            self.project_name,
+                            browser=self._get_browser(),
+                            project_config=project_config,
                         )
                     
                     video_analysis, gemini_link = await self._retry_step(
@@ -530,7 +532,11 @@ class Workflow:
                 video_analysis = video_analysis_override
             else:
                 self.logger.info("Bắt đầu phân tích video tự động")
-                video_analysis, gemini_link = await self.video_analyzer.analyze_videos(video_paths, self.project_name)
+                video_analysis, gemini_link = await self.video_analyzer.analyze_videos(
+                    video_paths,
+                    self.project_name,
+                    project_config=project_config,
+                )
                 self.logger.info("Hoàn thành phân tích video")
                 
                 if gemini_link:

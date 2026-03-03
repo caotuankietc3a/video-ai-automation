@@ -1,9 +1,8 @@
 from playwright.async_api import async_playwright, Browser, Page, BrowserContext, Playwright
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 import asyncio
 import logging
 import platform
-import subprocess
 import json
 import os
 from ..data.config_manager import config_manager
@@ -31,6 +30,14 @@ class BrowserAutomation:
         self.headless = config_manager.get("browser_automation.headless", False)
         self.timeout = config_manager.get("browser_automation.timeout", 30000)
         self.channel: str = config_manager.get("browser_automation.channel", "chrome")
+        self.chrome_profile_enabled = bool(config_manager.get("browser_automation.chrome_profile.enabled", False))
+        self.chrome_user_data_dir = str(config_manager.get("browser_automation.chrome_profile.user_data_dir", "") or "").strip()
+        self.chrome_profile_directory = str(config_manager.get("browser_automation.chrome_profile.profile_directory", "") or "").strip()
+
+        self.runtime_chrome_profile_enabled = self.chrome_profile_enabled
+        self.runtime_chrome_user_data_dir = self.chrome_user_data_dir
+        self.runtime_chrome_profile_directory = self.chrome_profile_directory
+
         base_x = config_manager.get("browser_automation.window_position_x", 100)
         base_y = config_manager.get("browser_automation.window_position_y", 100)
         self.window_width = config_manager.get("browser_automation.window_width", 1280)
@@ -43,7 +50,7 @@ class BrowserAutomation:
         os.makedirs(COOKIES_DIR, exist_ok=True)
         logger.info(f"BrowserAutomation instance created: {self.instance_id}")
     
-    async def start(self, clear_cookies: bool = False):
+    async def start(self, clear_cookies: bool = False, runtime_config: Optional[Dict[str, Any]] = None):
         """
         KHÔNG restart browser nếu đã launch.
         - Lần đầu: launch playwright + browser + context + page.
@@ -51,16 +58,33 @@ class BrowserAutomation:
           - clear_cookies=True: chỉ recreate context/page (trong cùng browser) để reset session.
           - clear_cookies=False: đảm bảo context/page còn sống; nếu page chết thì recreate page.
         """
-        await self._ensure_browser_launched()
+        profile_enabled, profile_user_data_dir, profile_directory = self._resolve_runtime_profile_config(runtime_config)
 
-        if clear_cookies:
-            await self._recreate_context(storage_state=None)
+        await self._ensure_browser_launched(
+            profile_enabled=profile_enabled,
+            profile_user_data_dir=profile_user_data_dir,
+            profile_directory=profile_directory,
+        )
+
+        if profile_enabled:
+            if self.context is None:
+                self.context = self.browser
+            if clear_cookies:
+                await self._clear_context_cookies_only()
         else:
-            await self._ensure_context()
+            if clear_cookies:
+                await self._recreate_context(storage_state=None)
+            else:
+                await self._ensure_context()
 
         await self._ensure_page()
 
-        if clear_cookies:
+        if profile_enabled:
+            if clear_cookies:
+                logger.info(f"Browser started (persistent profile, cookies cleared) for instance: {self.instance_id}")
+            else:
+                logger.info(f"Browser started (persistent profile) for instance: {self.instance_id}")
+        elif clear_cookies:
             logger.info(f"Browser started (context recreated, cookies cleared) for instance: {self.instance_id}")
         else:
             logger.info(f"Browser started (ensure page) for instance: {self.instance_id}")
@@ -68,7 +92,28 @@ class BrowserAutomation:
         if not self.headless and platform.system() == 'Darwin':
             await self._set_window_position_mac()
 
-    async def _ensure_browser_launched(self) -> None:
+    def _resolve_runtime_profile_config(self, runtime_config: Optional[Dict[str, Any]]) -> Tuple[bool, str, str]:
+        runtime_config = runtime_config or {}
+        profile_enabled = bool(runtime_config.get("chrome_profile_enabled", self.runtime_chrome_profile_enabled))
+        profile_user_data_dir = str(runtime_config.get("chrome_user_data_dir", self.runtime_chrome_user_data_dir) or "").strip()
+        profile_directory = str(runtime_config.get("chrome_profile_directory", self.runtime_chrome_profile_directory) or "").strip()
+
+        if profile_enabled and not profile_user_data_dir:
+            logger.warning("Chrome profile đã bật nhưng chưa có user_data_dir, fallback về mode không profile")
+            profile_enabled = False
+
+        self.runtime_chrome_profile_enabled = profile_enabled
+        self.runtime_chrome_user_data_dir = profile_user_data_dir
+        self.runtime_chrome_profile_directory = profile_directory
+
+        return profile_enabled, profile_user_data_dir, profile_directory
+
+    async def _ensure_browser_launched(
+        self,
+        profile_enabled: bool = False,
+        profile_user_data_dir: str = "",
+        profile_directory: str = "",
+    ) -> None:
         if self.playwright is None:
             self.playwright = await async_playwright().start()
 
@@ -82,6 +127,20 @@ class BrowserAutomation:
                 f'--window-size={self.window_width},{self.window_height}',
             ])
 
+        if profile_enabled:
+            if profile_directory:
+                launch_args.append(f'--profile-directory={profile_directory}')
+
+            self.browser = await self.playwright.chromium.launch_persistent_context(
+                user_data_dir=profile_user_data_dir,
+                headless=self.headless,
+                channel=self.channel,
+                viewport={'width': self.window_width, 'height': self.window_height} if not self.headless else None,
+                args=launch_args if launch_args else None,
+            )
+            self.context = self.browser
+            return
+
         self.browser = await self.playwright.chromium.launch(
             headless=self.headless,
             channel=self.channel,
@@ -89,6 +148,11 @@ class BrowserAutomation:
         )
 
     async def _ensure_context(self) -> None:
+        if self.runtime_chrome_profile_enabled:
+            if self.context is None:
+                self.context = self.browser
+            return
+
         if self.context is None:
             storage_state = self._load_cookies()
             self.context = await self.browser.new_context(
@@ -105,7 +169,12 @@ class BrowserAutomation:
             await self._ensure_context()
 
     async def _recreate_context(self, storage_state: Optional[Dict[str, Any]] = None) -> None:
-        # chỉ đóng context cũ, KHÔNG đóng browser
+        # chỉ đóng context cũ, KHÔNG đóng browser (không dùng cho persistent profile)
+        if self.context is not None and self.context is self.browser:
+            await self._clear_context_cookies_only()
+            self.page = None
+            return
+
         try:
             if self.context is not None:
                 await self.context.close()
@@ -116,6 +185,13 @@ class BrowserAutomation:
             storage_state=storage_state,
         )
         self.page = None
+
+    async def _clear_context_cookies_only(self) -> None:
+        try:
+            if self.context is not None:
+                await self.context.clear_cookies()
+        except Exception as e:
+            logger.warning(f"Không thể clear cookies trong context: {e}")
 
     async def _ensure_page(self) -> None:
         if self.browser is None:
@@ -134,7 +210,7 @@ class BrowserAutomation:
     
     async def stop(self):
         logger.info(f"Stopping browser instance: {self.instance_id}")
-        if self.context:
+        if self.context and self.context is not self.browser:
             await self.context.close()
         if self.browser:
             await self.browser.close()
@@ -177,7 +253,6 @@ class BrowserAutomation:
                 await self.page.mouse.move(x, y)
     
     async def close_current_tab(self):
-        import random
         if self.page and not self.page.is_closed():
             try:
                 await self._human_delay(0.2, 0.5)
@@ -189,7 +264,6 @@ class BrowserAutomation:
         self.page = None
     
     async def new_tab(self):
-        import random
         await self._ensure_page()
         
         await self._human_delay(0.4, 0.8)
@@ -606,6 +680,10 @@ class BrowserAutomation:
     async def clear_cookies(self, domain: str = "google") -> None:
         if self.context:
             await self.context.clear_cookies()
+
+        if self.runtime_chrome_profile_enabled:
+            return
+
         cookies_file = self._get_cookies_file_path(domain)
         if os.path.exists(cookies_file):
             try:
@@ -616,6 +694,9 @@ class BrowserAutomation:
     
     def _load_cookies(self, domain: str = "google") -> Optional[Dict[str, Any]]:
         """Load cookies từ file"""
+        if self.runtime_chrome_profile_enabled:
+            return None
+
         cookies_file = self._get_cookies_file_path(domain)
         if os.path.exists(cookies_file):
             try:
@@ -629,16 +710,19 @@ class BrowserAutomation:
     
     async def _save_cookies(self, domain: str = "google") -> bool:
         """Lưu cookies vào file"""
+        if self.runtime_chrome_profile_enabled:
+            return True
+
         if not self.context:
             return False
-        
+
         try:
             storage_state = await self.context.storage_state()
             cookies_file = self._get_cookies_file_path(domain)
-            
+
             with open(cookies_file, 'w', encoding='utf-8') as f:
                 json.dump(storage_state, f, indent=2, ensure_ascii=False)
-            
+
             logger.info(f"Đã lưu cookies vào {cookies_file}")
             return True
         except Exception as e:
@@ -694,7 +778,7 @@ class BrowserAutomation:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdout, stderr = await process.communicate()
+            _, stderr = await process.communicate()
             
             if process.returncode != 0:
                 logger.warning(f"Lỗi khi đặt vị trí cửa sổ: {stderr.decode() if stderr else 'Unknown error'}")

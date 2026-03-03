@@ -42,13 +42,19 @@ class VideoAnalyzer:
         analysis = await self.provider.generate_with_images(prompt, all_frames)
         return analysis
 
-    async def _analyze_with_browser(self, video_paths: List[str], browser: Optional[BrowserAutomation] = None) -> Tuple[str, str]:
+    async def _analyze_with_browser(
+        self,
+        video_paths: List[str],
+        browser: Optional[BrowserAutomation] = None,
+        project_config: Optional[dict] = None,
+    ) -> Tuple[str, str]:
         browser = browser or browser_automation
         logger.info(f"Bắt đầu phân tích video qua Gemini Web (browser instance: {browser.instance_id})...")
         video_path = video_paths[0]
         logger.info(f"Video đầu vào: {video_path}")
 
-        await browser.start()
+        runtime_config = project_config or {"chrome_profile_enabled": False}
+        await browser.start(runtime_config=runtime_config)
         logger.info(f"Đi tới URL Gemini: {self.web_url}")
         await browser.navigate(self.web_url)
         await asyncio.sleep(5)
@@ -101,7 +107,13 @@ class VideoAnalyzer:
         
         return analysis.strip(), gemini_link
     
-    async def analyze_videos(self, video_paths: List[str], project_name: Optional[str] = None, browser: Optional[BrowserAutomation] = None) -> Tuple[str, Optional[str]]:
+    async def analyze_videos(
+        self,
+        video_paths: List[str],
+        project_name: Optional[str] = None,
+        browser: Optional[BrowserAutomation] = None,
+        project_config: Optional[dict] = None,
+    ) -> Tuple[str, Optional[str]]:
         if not video_paths:
             raise ValueError("No video paths provided")
         
@@ -109,7 +121,7 @@ class VideoAnalyzer:
         gemini_link = None
 
         if self.use_browser:
-            analysis, gemini_link = await self._analyze_with_browser(video_paths, browser)
+            analysis, gemini_link = await self._analyze_with_browser(video_paths, browser, project_config)
         else:
             analysis = await self._analyze_with_api(video_paths)
         

@@ -27,7 +27,8 @@ class WebContentGenerator:
         logger.info(f"Bắt đầu generate content qua Gemini Web (browser instance: {browser.instance_id})")
         logger.debug(f"Prompt length: {len(prompt)} characters")
         
-        await browser.start()
+        runtime_config = project_config or None
+        await browser.start(runtime_config=runtime_config)
         logger.debug("Browser automation đã khởi động")
         
         gemini_link = None

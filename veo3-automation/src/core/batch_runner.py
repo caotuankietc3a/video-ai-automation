@@ -3,7 +3,7 @@ import os
 import multiprocessing
 from multiprocessing import Process, Queue
 from typing import List, Dict, Optional, Callable
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from ..utils.logger import Logger
 
 
@@ -45,12 +45,20 @@ class BatchConfig:
     default_veo_profile: str = "VEO3 ULTRA"
     default_ai_model: str = "VEO3 ULTRA"
     default_outputs_per_prompt: int = 1
+    chrome_profile_enabled: bool = False
+    chrome_user_data_dir: str = ""
+    chrome_profile_directory: str = ""
 
     @classmethod
     def from_dict(cls, data: Dict) -> "BatchConfig":
         default_config = data.get("default_config", {})
         videos_data = data.get("videos", [])
-        
+        chrome_profile = data.get("chrome_profile", {}) if isinstance(data.get("chrome_profile", {}), dict) else {}
+
+        chrome_profile_enabled = bool(chrome_profile.get("enabled", False))
+        chrome_user_data_dir = str(chrome_profile.get("user_data_dir", "") or "").strip()
+        chrome_profile_directory = str(chrome_profile.get("profile_directory", "") or "").strip()
+
         videos = []
         for v in videos_data:
             video = VideoConfig(
@@ -66,7 +74,10 @@ class BatchConfig:
             videos.append(video)
         
         max_concurrent = data.get("max_concurrent", 2)
-        
+
+        if chrome_profile_enabled and max_concurrent > 1:
+            max_concurrent = 1
+
         return cls(
             videos=videos,
             max_concurrent=max_concurrent,
@@ -76,6 +87,9 @@ class BatchConfig:
             default_veo_profile=default_config.get("veo_profile", "VEO3 ULTRA"),
             default_ai_model=default_config.get("ai_model", "VEO3 ULTRA"),
             default_outputs_per_prompt=default_config.get("outputs_per_prompt", 1),
+            chrome_profile_enabled=chrome_profile_enabled,
+            chrome_user_data_dir=chrome_user_data_dir,
+            chrome_profile_directory=chrome_profile_directory,
         )
 
 
@@ -189,6 +203,9 @@ def _run_worker_process(
                 "ai_model": video_config.ai_model,
                 "outputs_per_prompt": video_config.outputs_per_prompt,
                 "use_browser_automation": True,
+                "chrome_profile_enabled": video_data.get("chrome_profile_enabled", False),
+                "chrome_user_data_dir": video_data.get("chrome_user_data_dir", ""),
+                "chrome_profile_directory": video_data.get("chrome_profile_directory", ""),
             }
             
             loop = asyncio.new_event_loop()
@@ -374,7 +391,10 @@ class BatchRunner:
             process_idx = i % num_processes
             chunks[process_idx].append({
                 "config": video.to_dict(),
-                "index": i + 1
+                "index": i + 1,
+                "chrome_profile_enabled": self.config.chrome_profile_enabled,
+                "chrome_user_data_dir": self.config.chrome_user_data_dir,
+                "chrome_profile_directory": self.config.chrome_profile_directory,
             })
         
         return chunks
